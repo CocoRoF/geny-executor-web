@@ -417,15 +417,15 @@ export default function PipelineView() {
           {stages.map((stage) => {
             const pos = positions.get(stage.order);
             if (!pos) return null;
-            const size = R + 10; // half-width of the wrapper
+            const halfW = R + 10; // half-width of the wrapper (circle + padding)
             return (
               <div
                 key={stage.order}
                 style={{
                   position: "absolute",
-                  left: pos.x - size,
-                  top: pos.y - size,
-                  width: size * 2,
+                  left: pos.x - halfW,
+                  top: pos.y - R, // align circle center with SVG coordinate
+                  width: halfW * 2,
                   display: "flex",
                   justifyContent: "center",
                 }}

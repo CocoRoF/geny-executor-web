@@ -36,9 +36,15 @@ export default function InputPanel() {
   }, [input, activeSessionId, serverHasApiKey, apiKey, activePreset, createSession, execute]);
 
   return (
-    <div className="px-6 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+    <div
+      className="shrink-0"
+      style={{
+        borderTop: "1px solid var(--border)",
+        background: "var(--bg-secondary)",
+      }}
+    >
       {showApiKey && !activeSessionId && (
-        <div className="mb-3">
+        <div className="px-5 pt-3">
           <input
             type="password"
             placeholder="Anthropic API Key (sk-ant-...)"
@@ -53,7 +59,33 @@ export default function InputPanel() {
           />
         </div>
       )}
-      <div className="flex gap-3">
+      <div className="px-5 py-3 flex items-center gap-3">
+        {/* Status / cost indicator */}
+        <div className="flex items-center gap-2 shrink-0">
+          {isExecuting ? (
+            <>
+              <div
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ background: "var(--accent)" }}
+              />
+              {runningCostUsd > 0 && (
+                <span
+                  className="text-[10px] mono"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  ${runningCostUsd.toFixed(4)}
+                </span>
+              )}
+            </>
+          ) : (
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ background: activeSessionId ? "var(--green)" : "var(--border-hover)" }}
+            />
+          )}
+        </div>
+
+        {/* Text input */}
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -68,23 +100,26 @@ export default function InputPanel() {
               ? "Type a message..."
               : "Type a message to start a new session..."
           }
-          className="flex-1 text-sm px-4 py-2.5 rounded-lg resize-none outline-none"
+          className="flex-1 text-sm px-4 py-2 rounded-lg resize-none outline-none leading-snug"
           style={{
             background: "var(--bg-tertiary)",
             color: "var(--text-primary)",
             border: "1px solid var(--border)",
+            maxHeight: 80,
           }}
           rows={1}
           disabled={isExecuting}
         />
+
+        {/* Action buttons */}
         {isExecuting ? (
           <button
             onClick={stopExecution}
-            className="px-5 py-2.5 rounded-lg text-sm font-medium transition-all"
+            className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all shrink-0"
             style={{
-              background: "rgba(212, 91, 91, 0.15)",
+              background: "rgba(212, 91, 91, 0.12)",
               color: "var(--red)",
-              border: "1px solid var(--red)",
+              border: "1px solid rgba(212, 91, 91, 0.3)",
               cursor: "pointer",
             }}
           >
@@ -94,7 +129,7 @@ export default function InputPanel() {
           <button
             onClick={handleSend}
             disabled={!input.trim()}
-            className="px-5 py-2.5 rounded-lg text-sm font-medium transition-all"
+            className="px-4 py-2 rounded-lg text-[12px] font-medium transition-all shrink-0"
             style={{
               background: !input.trim() ? "var(--bg-tertiary)" : "var(--accent)",
               color: !input.trim() ? "var(--text-muted)" : "var(--bg-primary)",
@@ -106,25 +141,19 @@ export default function InputPanel() {
           </button>
         )}
       </div>
-      <div className="flex items-center justify-between mt-2">
-        {!activeSessionId && !showApiKey && !serverHasApiKey && (
+
+      {/* Footer row */}
+      {!activeSessionId && !showApiKey && !serverHasApiKey && (
+        <div className="px-5 pb-2">
           <button
             onClick={() => setShowApiKey(true)}
-            className="text-[11px]"
+            className="text-[10px]"
             style={{ color: "var(--accent)" }}
           >
             Set API Key to create a session
           </button>
-        )}
-        {isExecuting && runningCostUsd > 0 && (
-          <span
-            className="ml-auto text-[11px] mono"
-            style={{ color: "var(--text-muted)" }}
-          >
-            ${runningCostUsd.toFixed(6)}
-          </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

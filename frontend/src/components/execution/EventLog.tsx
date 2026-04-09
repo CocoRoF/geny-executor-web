@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import { useExecutionStore } from "../../stores/executionStore";
 import EventItem from "./EventItem";
+import ResultPanel from "./ResultPanel";
 
 export default function EventLog() {
   const events = useExecutionStore((s) => s.events);
@@ -13,7 +14,7 @@ export default function EventLog() {
   }, [events.length]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div
         className="px-4 py-3 flex items-center justify-between shrink-0"
@@ -43,7 +44,7 @@ export default function EventLog() {
         )}
       </div>
 
-      {/* Events */}
+      {/* Scrollable events + inline result */}
       <div className="flex-1 overflow-y-auto min-h-0">
         {events.length === 0 ? (
           <div className="h-full flex items-center justify-center">
@@ -63,6 +64,7 @@ export default function EventLog() {
             {events.map((event, i) => (
               <EventItem key={i} event={event} />
             ))}
+            <ResultPanel />
             <div ref={bottomRef} />
           </>
         )}

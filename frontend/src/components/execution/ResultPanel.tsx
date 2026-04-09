@@ -7,12 +7,20 @@ export default function ResultPanel() {
   if (!result) return null;
 
   return (
-    <div className="px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+    <div
+      className="mx-3 my-3 rounded-lg"
+      style={{
+        background: result.success
+          ? "rgba(91,186,111,0.06)"
+          : "rgba(212,91,91,0.06)",
+        border: `1px solid ${result.success ? "rgba(91,186,111,0.2)" : "rgba(212,91,91,0.2)"}`,
+      }}
+    >
       {result.success ? (
-        <div>
+        <div className="p-3">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-[11px] font-medium" style={{ color: "var(--green)" }}>
-              Complete
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--green)" }}>
+              &#10003; Complete
             </span>
             <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
               {result.iterations} iter
@@ -23,21 +31,23 @@ export default function ResultPanel() {
               </span>
             )}
           </div>
-          <div
-            className="rounded-lg p-3 text-sm max-h-40 overflow-y-auto whitespace-pre-wrap"
-            style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
-          >
-            {result.text || "(empty)"}
-          </div>
+          {result.text && (
+            <div
+              className="rounded-md p-3 text-[12px] leading-relaxed max-h-60 overflow-y-auto whitespace-pre-wrap"
+              style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
+            >
+              {result.text}
+            </div>
+          )}
         </div>
       ) : (
-        <div>
-          <span className="text-[11px] font-medium" style={{ color: "var(--red)" }}>
-            Error
+        <div className="p-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--red)" }}>
+            &#10007; Error
           </span>
           <div
-            className="mt-1 rounded-lg p-3 text-sm"
-            style={{ background: "rgba(212, 91, 91, 0.08)", color: "var(--red)" }}
+            className="mt-2 rounded-md p-3 text-[12px] leading-relaxed"
+            style={{ background: "rgba(212,91,91,0.06)", color: "var(--red)" }}
           >
             {result.error}
           </div>
