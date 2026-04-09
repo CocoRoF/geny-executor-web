@@ -1,9 +1,7 @@
 services:
   backend:
     build:
-      # context = geny-tts-prj root so Dockerfile can reach geny-executor/
-      context: ..
-      dockerfile: geny-executor-web/backend/Dockerfile
+      context: ./backend
     env_file:
       - .env
     environment:
