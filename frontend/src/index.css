@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #0c0c0c;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1c1c1c;
+  --bg-card: #181818;
+  --border: #232323;
+  --border-hover: #333333;
+  --text-primary: #e8e4df;
+  --text-secondary: #8a857e;
+  --text-muted: #4a4640;
+  --accent: #c8a45c;
+  --accent-dim: rgba(200, 164, 92, 0.1);
+  --accent-glow: rgba(200, 164, 92, 0.25);
+  --blue: #5b8cd4;
+  --green: #5bba6f;
+  --red: #d45b5b;
+  --purple: #9b7bd4;
+  --cyan: #5bbaba;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 { font-family: 'Playfair Display', serif; }
+code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ── Stage Circle ───────────────────────────────────── */
+.stage-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+  background: radial-gradient(ellipse at 35% 30%, var(--bg-tertiary), var(--bg-secondary));
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
+
+.stage-circle:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+  transform: scale(1.12);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+
+.stage-circle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: radial-gradient(ellipse at 35% 30%, rgba(200,164,92,0.12), var(--bg-secondary));
+  box-shadow:
+    0 0 24px var(--accent-glow),
+    0 0 60px rgba(200,164,92,0.06),
+    inset 0 0 12px rgba(200,164,92,0.04);
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+.stage-circle.completed {
+  border-color: var(--green);
+  color: var(--green);
+  background: radial-gradient(ellipse at 35% 30%, rgba(91,186,111,0.06), var(--bg-secondary));
+  box-shadow: 0 0 14px rgba(91,186,111,0.12);
+}
+
+.stage-circle.error {
+  border-color: var(--red);
+  color: var(--red);
+  background: radial-gradient(ellipse at 35% 30%, rgba(212,91,91,0.06), var(--bg-secondary));
+  box-shadow: 0 0 14px rgba(212,91,91,0.12);
+}
+
+/* Inactive stages look identical to normal stages on the canvas.
+   The inactive badge only appears in the detail panel. */
+
+.stage-circle.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 18px var(--accent-glow);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 18px var(--accent-glow), 0 0 50px rgba(200,164,92,0.05); }
+  50% { box-shadow: 0 0 30px var(--accent-glow), 0 0 80px rgba(200,164,92,0.1); }
+}
+
+/* ── Dash flow animation (loop-back path) ──────────── */
+@keyframes dash-flow {
+  to { stroke-dashoffset: -18; }
+}
+.dash-flow {
+  animation: dash-flow 1.2s linear infinite;
+}
+
+/* ── Scrollbar ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* ── Event Log Items ────────────────────────────────── */
+.event-item {
+  padding: 5px 16px;
+  border-bottom: 1px solid rgba(35,35,35,0.7);
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.event-item:hover {
+  background: var(--bg-tertiary);
+}
+
+/* ── Panel slide-in ────────────────────────────────── */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0.8; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.animate-slide-in {
+  animation: slide-in-right 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Selection ──────────────────────────────────────── */
+::selection {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
