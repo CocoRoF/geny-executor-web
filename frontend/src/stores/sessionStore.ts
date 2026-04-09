@@ -4,13 +4,16 @@ import {
   createSession as apiCreateSession,
   fetchSessions,
   deleteSession as apiDeleteSession,
+  fetchConfig,
 } from "../api/session";
 
 interface SessionStore {
   sessions: SessionInfo[];
   activeSessionId: string | null;
+  serverHasApiKey: boolean;
   loading: boolean;
   error: string | null;
+  checkConfig: () => Promise<void>;
   createSession: (req: CreateSessionRequest) => Promise<string>;
   loadSessions: () => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
@@ -20,8 +23,18 @@ interface SessionStore {
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: [],
   activeSessionId: null,
+  serverHasApiKey: false,
   loading: false,
   error: null,
+
+  checkConfig: async () => {
+    try {
+      const { api_key_configured } = await fetchConfig();
+      set({ serverHasApiKey: api_key_configured });
+    } catch {
+      // ignore — serverHasApiKey stays false, user must provide key manually
+    }
+  },
 
   createSession: async (req) => {
     set({ loading: true, error: null });

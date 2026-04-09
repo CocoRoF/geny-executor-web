@@ -12,12 +12,14 @@ export default function App() {
   const loadPipeline = usePipelineStore((s) => s.loadPipeline);
   const loadPresets = usePipelineStore((s) => s.loadPresets);
   const loadSessions = useSessionStore((s) => s.loadSessions);
+  const checkConfig = useSessionStore((s) => s.checkConfig);
 
   useEffect(() => {
+    checkConfig();
     loadPresets();
     loadPipeline("agent");
     loadSessions();
-  }, [loadPresets, loadPipeline, loadSessions]);
+  }, [checkConfig, loadPresets, loadPipeline, loadSessions]);
 
   return (
     <div className="h-screen flex flex-col" style={{ background: "var(--bg-primary)" }}>

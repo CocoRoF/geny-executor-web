@@ -1,6 +1,10 @@
 import { apiFetch } from "./client";
 import type { CreateSessionRequest, SessionInfo } from "../types/session";
 
+export async function fetchConfig(): Promise<{ api_key_configured: boolean }> {
+  return apiFetch("/api/config");
+}
+
 export async function createSession(
   req: CreateSessionRequest
 ): Promise<{ session_id: string; preset: string }> {

@@ -9,6 +9,7 @@ export default function InputPanel() {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const serverHasApiKey = useSessionStore((s) => s.serverHasApiKey);
   const createSession = useSessionStore((s) => s.createSession);
   const activePreset = usePipelineStore((s) => s.activePreset);
   const isExecuting = useExecutionStore((s) => s.isExecuting);
@@ -20,18 +21,19 @@ export default function InputPanel() {
 
     let sessionId = activeSessionId;
     if (!sessionId) {
-      if (!apiKey.trim()) {
+      // If server already has ANTHROPIC_API_KEY in env, skip client-side key requirement
+      if (!serverHasApiKey && !apiKey.trim()) {
         setShowApiKey(true);
         return;
       }
       sessionId = await createSession({
         preset: activePreset,
-        api_key: apiKey,
+        api_key: apiKey.trim() || undefined,
       });
     }
     execute(sessionId, input.trim());
     setInput("");
-  }, [input, activeSessionId, apiKey, activePreset, createSession, execute]);
+  }, [input, activeSessionId, serverHasApiKey, apiKey, activePreset, createSession, execute]);
 
   return (
     <div className="px-6 py-4" style={{ borderTop: "1px solid var(--border)" }}>
@@ -105,7 +107,7 @@ export default function InputPanel() {
         )}
       </div>
       <div className="flex items-center justify-between mt-2">
-        {!activeSessionId && !showApiKey && (
+        {!activeSessionId && !showApiKey && !serverHasApiKey && (
           <button
             onClick={() => setShowApiKey(true)}
             className="text-[11px]"

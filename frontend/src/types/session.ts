@@ -9,7 +9,7 @@ export interface SessionInfo {
 
 export interface CreateSessionRequest {
   preset: string;
-  api_key: string;
+  api_key?: string;
   system_prompt?: string;
   model?: string;
   max_iterations?: number;

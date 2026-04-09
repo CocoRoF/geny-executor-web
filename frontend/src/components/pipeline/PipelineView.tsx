@@ -358,7 +358,7 @@ export default function PipelineView() {
           </span>
           <h2
             className="text-lg font-bold mt-0.5 leading-tight"
-            style={{ fontFamily: "'Playfair Display', serif" }}
+            style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}
           >
             {isKo ? "16단계 아키텍처" : "16-Stage Architecture"}
           </h2>

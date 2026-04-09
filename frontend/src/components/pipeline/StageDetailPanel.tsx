@@ -117,7 +117,7 @@ export default function StageDetailPanel() {
               <div>
                 <h3
                   className="text-xl font-bold leading-tight"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
+                  style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}
                 >
                   {meta?.displayName ?? stage.name}
                 </h3>
