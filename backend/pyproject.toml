@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "geny-executor-web"
-version = "0.2.0"
+version = "0.2.2"
 description = "WebUI for geny-executor pipeline library"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,7 +12,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "websockets>=13.0",
     "python-dotenv>=1.0.0",
-    "geny-executor>=0.2.1",
+    "geny-executor>=0.2.2",
 ]
 
 [tool.hatch.build.targets.wheel]
