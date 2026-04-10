@@ -7,11 +7,12 @@ export default function EventLog() {
   const events = useExecutionStore((s) => s.events);
   const isExecuting = useExecutionStore((s) => s.isExecuting);
   const activeStage = useExecutionStore((s) => s.activeStage);
+  const streamingText = useExecutionStore((s) => s.streamingText);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [events.length]);
+  }, [events.length, streamingText]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
