@@ -26,6 +26,9 @@ frontend/dist/
 .DS_Store
 Thumbs.db
 
+# Lock files (server installs fresh from PyPI)
+*.lock
+
 # Test
 .pytest_cache/
 .coverage
