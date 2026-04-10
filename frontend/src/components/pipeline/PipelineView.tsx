@@ -316,7 +316,9 @@ function Decorations() {
 export default function PipelineView() {
   const stages = usePipelineStore((s) => s.stages);
   const locale = useUIStore((s) => s.locale);
+  const engine = useUIStore((s) => s.engine);
   const isKo = locale === "ko";
+  const engineLabel = engine === "executor" ? "Python" : "Rust";
   const {
     containerRef,
     transform,
@@ -356,12 +358,23 @@ export default function PipelineView() {
           >
             {isKo ? "파이프라인" : "Pipeline"}
           </span>
-          <h2
-            className="text-lg font-bold mt-0.5 leading-tight"
-            style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}
-          >
-            {isKo ? "16단계 아키텍처" : "16-Stage Architecture"}
-          </h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            <h2
+              className="text-lg font-bold leading-tight"
+              style={{ fontFamily: "'Playfair Display', serif", color: "var(--text-primary)" }}
+            >
+              {isKo ? "16단계 아키텍처" : "16-Stage Architecture"}
+            </h2>
+            <span
+              className="text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+              style={{
+                background: engine === "executor" ? "rgba(59,130,246,0.15)" : "rgba(249,115,22,0.15)",
+                color: engine === "executor" ? "rgb(96,165,250)" : "rgb(251,146,60)",
+              }}
+            >
+              {engineLabel}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <span
@@ -370,6 +383,17 @@ export default function PipelineView() {
           >
             {isKo ? "스크롤 · 확대/축소 \u2003 드래그 · 이동" : "scroll\u00a0\u00b7\u00a0zoom \u2003 drag\u00a0\u00b7\u00a0pan"}
           </span>
+          <button
+            onClick={() => useUIStore.getState().setCodeViewOpen(true)}
+            className="text-[10px] px-3 py-1 rounded-md transition-colors hover:brightness-125"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--accent)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {isKo ? "코드 보기" : "Code"}
+          </button>
           <button
             onClick={resetView}
             className="text-[10px] px-3 py-1 rounded-md transition-colors hover:brightness-125"

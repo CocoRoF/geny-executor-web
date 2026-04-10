@@ -10,12 +10,12 @@ router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
 
 @router.get("/describe", response_model=PipelineDescribeResponse)
-async def describe_pipeline(request: Request, preset: str = "agent"):
+async def describe_pipeline(request: Request, preset: str = "agent", engine: str = "executor"):
     pipeline_service = request.app.state.pipeline_service
-    return pipeline_service.describe_pipeline(preset)
+    return pipeline_service.describe_pipeline(preset, engine=engine)
 
 
 @router.get("/presets", response_model=PresetsListResponse)
-async def list_presets(request: Request):
+async def list_presets(request: Request, engine: str = "executor"):
     pipeline_service = request.app.state.pipeline_service
-    return {"presets": pipeline_service.get_presets()}
+    return {"presets": pipeline_service.get_presets(engine=engine)}

@@ -12,6 +12,7 @@ PresetName = Literal["minimal", "chat", "agent", "evaluator", "geny_vtuber"]
 
 class CreateSessionRequest(BaseModel):
     preset: str = "chat"
+    engine: str = "executor"  # "executor" or "harness"
     api_key: str = ""
     system_prompt: str = ""
     model: str = "claude-sonnet-4-20250514"
@@ -23,6 +24,14 @@ class CreateSessionRequest(BaseModel):
         """Validate that preset is one of the supported pipeline presets."""
         if v not in VALID_PRESETS:
             raise ValueError(f"preset must be one of {VALID_PRESETS}, got {v!r}")
+        return v
+
+    @field_validator("engine")
+    @classmethod
+    def engine_must_be_valid(cls, v: str) -> str:
+        """Validate that engine is one of the supported engines."""
+        if v not in ("executor", "harness"):
+            raise ValueError("engine must be 'executor' or 'harness'")
         return v
 
     @field_validator("max_iterations")
@@ -37,6 +46,7 @@ class CreateSessionRequest(BaseModel):
 class SessionInfoResponse(BaseModel):
     session_id: str
     preset: str
+    engine: str = "executor"
     freshness: str
     message_count: int
     iteration: int

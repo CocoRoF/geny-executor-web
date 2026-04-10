@@ -4,6 +4,7 @@ import { useSessionStore } from "./stores/sessionStore";
 import Header from "./components/layout/Header";
 import PipelineView from "./components/pipeline/PipelineView";
 import StageDetailPanel from "./components/pipeline/StageDetailPanel";
+import CodeViewModal from "./components/pipeline/CodeViewModal";
 import EventLog from "./components/execution/EventLog";
 import InputPanel from "./components/execution/InputPanel";
 
@@ -43,6 +44,7 @@ export default function App() {
       <InputPanel />
 
       <StageDetailPanel />
+      <CodeViewModal />
     </div>
   );
 }
