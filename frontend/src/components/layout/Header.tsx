@@ -1,6 +1,6 @@
 import { usePipelineStore } from "../../stores/pipelineStore";
 import { useUIStore } from "../../stores/uiStore";
-import type { Engine } from "../../stores/uiStore";
+import type { Engine, ViewMode } from "../../stores/uiStore";
 
 export default function Header() {
   const activePreset = usePipelineStore((s) => s.activePreset);
@@ -10,15 +10,24 @@ export default function Header() {
   const setLocale = useUIStore((s) => s.setLocale);
   const engine = useUIStore((s) => s.engine);
   const setEngine = useUIStore((s) => s.setEngine);
+  const viewMode = useUIStore((s) => s.viewMode);
+  const setViewMode = useUIStore((s) => s.setViewMode);
   const loadPresets = usePipelineStore((s) => s.loadPresets);
 
-  const brandName = engine === "executor" ? "executor" : "harness";
+  const brandName = viewMode === "compare" ? "compare" : engine === "executor" ? "executor" : "harness";
 
-  const handleEngineChange = (e: Engine) => {
-    setEngine(e);
-    loadPresets();
-    loadPipeline(activePreset);
+  const handleTabChange = (tab: string) => {
+    if (tab === "compare") {
+      setViewMode("compare");
+    } else {
+      setViewMode("single");
+      setEngine(tab as Engine);
+      loadPresets();
+      loadPipeline(activePreset);
+    }
   };
+
+  const selectedTab = viewMode === "compare" ? "compare" : engine;
 
   return (
     <header
@@ -53,14 +62,15 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Engine toggle: Executor / Harness */}
+        {/* Engine toggle: Executor / Harness / Compare */}
         <ToggleGroup
           options={[
             { value: "executor", label: "Executor" },
             { value: "harness", label: "Harness" },
+            { value: "compare", label: "Compare" },
           ]}
-          selected={engine}
-          onSelect={(v) => handleEngineChange(v as Engine)}
+          selected={selectedTab}
+          onSelect={handleTabChange}
           accent="var(--accent)"
         />
 
@@ -79,7 +89,7 @@ export default function Header() {
           className="text-[10px] uppercase tracking-widest"
           style={{ color: "var(--text-muted)" }}
         >
-          V0.4.0
+          V0.5.2
         </div>
       </div>
     </header>
