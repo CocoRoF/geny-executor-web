@@ -7,14 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN pip install --no-cache-dir uv
 
-RUN uv pip install --system --no-cache \
-    "geny-executor>=0.4.0" \
-    "geny-harness>=0.5.0" \
-    "fastapi>=0.115.0" \
-    "uvicorn[standard]>=0.30.0" \
-    "websockets>=13.0" \
-    "python-dotenv>=1.0.0" \
-    "anthropic>=0.52.0"
+COPY pyproject.toml /app/
+RUN uv pip install --system --no-cache -r pyproject.toml
 
 COPY app/ /app/app/
 
