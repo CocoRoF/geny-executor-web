@@ -147,6 +147,17 @@ function processEvent(run: EngineRun, event: PipelineEvent): EngineRun {
   }
 
   if (event.type === "pipeline.error" || event.type === "error") {
+    // If pipeline already completed successfully, keep the original result and timing.
+    // Post-pipeline errors (e.g. state sync) should not overwrite valid data.
+    if (run.status === "complete" && run.result) {
+      return {
+        ...run,
+        events,
+        stageTimings,
+        status: "error",
+        result: { ...run.result, success: false, error: String(event.data.error ?? "Unknown error") },
+      };
+    }
     const result: PipelineResult = {
       success: false,
       text: "",

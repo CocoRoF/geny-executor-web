@@ -89,7 +89,7 @@ export default function Header() {
           className="text-[10px] uppercase tracking-widest"
           style={{ color: "var(--text-muted)" }}
         >
-          V0.5.2
+          V0.5.3
         </div>
       </div>
     </header>
