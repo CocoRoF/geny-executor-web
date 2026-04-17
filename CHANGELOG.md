@@ -2,6 +2,45 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.3 — 2026-04-17
+
+### Fixed — Environment Builder offered Tool / Model / Chain inputs on every stage
+
+Sharing the 4-tab `StageCard` interface across all 16 stages meant the
+Builder rendered Config / Tools / Model / Chain tabs everywhere, even
+though the runtime only consumes `tool_binding` on `s10_tool`,
+`model_override` on `s06_api`, and chains on `s04_guard` / `s14_emit`.
+The v0.8.2 fix had the tabs read the library's capability flags, but
+the library reported `True` unconditionally — so the tabs still
+rendered and just printed "this stage does not support …" banners,
+which is the misleading surface the user pushed back on.
+
+`geny-executor v0.13.2` now reports honest capability flags. This
+release threads them into the UI:
+
+- **`StageCard` computes `visibleTabs` from the introspection.** Config
+  is always shown; Tools is shown only when
+  `tool_binding_supported === true`; Model only when
+  `model_override_supported === true`; Chain only when
+  `strategy_chains` has at least one entry. Result: most stages show
+  only Config; `s06_api` shows Config + Model; `s10_tool` shows
+  Config + Tools; `s04_guard` / `s14_emit` show Config + Chain.
+- **Selected tab stays valid across artifact switches.** When
+  switching to an artifact that doesn't support the currently-active
+  tab (e.g. picking a non-LLM artifact while on the Model tab), the
+  card snaps back to the first visible tab instead of rendering
+  against a hidden key.
+- **Pre-introspection render is conservative.** Before the catalog
+  fetch resolves, only the Config tab appears — no placeholders for
+  tabs we don't yet know exist on this artifact.
+
+### Changed
+- Minimum `geny-executor` pin bumped to `>=0.13.2`.
+
+### Upgraded
+- `geny-executor-web` backend: `0.8.2 → 0.8.3`
+- `geny-executor-web` frontend: `0.8.2 → 0.8.3`
+
 ## v0.8.2 — 2026-04-17
 
 ### Fixed — Environment Builder stage editing was silently broken
