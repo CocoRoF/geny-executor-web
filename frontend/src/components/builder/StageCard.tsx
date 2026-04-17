@@ -4,8 +4,9 @@
  *   - artifact picker (top of the card)
  *   - tab switcher rendering only the tabs the current (stage, artifact)
  *     actually supports (see `visibleTabsFor` below).
- *   - local dirty-buffer for each tab so typing feels instant; the parent
- *     patchStage call is debounced via a 600 ms trailing timer.
+ *   - edit dispatch: every widget calls `updateStageDraft(order, partial)`
+ *     which mutates the in-memory draft. No debouncing, no per-field
+ *     network — the parent view saves the whole manifest on Save.
  */
 import React from "react";
 
@@ -15,7 +16,6 @@ import type {
   StageManifestEntry,
   StageModelOverride,
   StageToolBinding,
-  UpdateStageTemplatePayload,
 } from "../../types/environment";
 import ChainTab from "./tabs/ChainTab";
 import ConfigTab from "./tabs/ConfigTab";
@@ -61,8 +61,6 @@ function visibleTabsFor(
   });
 }
 
-const PATCH_DEBOUNCE_MS = 600;
-
 /** Build the default strategy map for a freshly-selected artifact.
  *
  * Every slot that has a registered `current_impl` contributes one entry —
@@ -87,12 +85,12 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
   const {
     loadArtifactsForStage,
     loadArtifactIntrospection,
-    patchStage,
-    saving,
+    updateStageDraft,
   } = useEnvironmentBuilderStore();
 
   // Fetch the artifact list (for the picker) + the current artifact's
   // introspection (for the tabs) whenever the stage or artifact changes.
+  // These are read-only catalog fetches, cached in the store.
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -120,46 +118,6 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
     }
   }, [visibleTabs, tab]);
 
-  // Debounced patch: buffer outgoing changes, flush after a quiet window.
-  const pendingRef = React.useRef<UpdateStageTemplatePayload>({});
-  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Capture the order we're buffering for, so an unmount-flush never sends a
-  // stale payload to a different stage after the user has switched rows.
-  const bufferedOrderRef = React.useRef<number>(stage.order);
-  React.useEffect(() => {
-    bufferedOrderRef.current = stage.order;
-  }, [stage.order]);
-
-  const queuePatch = React.useCallback(
-    (partial: UpdateStageTemplatePayload) => {
-      pendingRef.current = { ...pendingRef.current, ...partial };
-      if (timerRef.current) clearTimeout(timerRef.current);
-      const targetOrder = bufferedOrderRef.current;
-      timerRef.current = setTimeout(() => {
-        const payload = pendingRef.current;
-        pendingRef.current = {};
-        if (Object.keys(payload).length === 0) return;
-        void patchStage(targetOrder, payload);
-      }, PATCH_DEBOUNCE_MS);
-    },
-    [patchStage]
-  );
-
-  // Flush on unmount / stage switch so we don't swallow edits.
-  React.useEffect(() => {
-    const targetOrder = bufferedOrderRef.current;
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        const payload = pendingRef.current;
-        pendingRef.current = {};
-        if (Object.keys(payload).length > 0) {
-          void patchStage(targetOrder, payload);
-        }
-      }
-    };
-  }, [stage.order, patchStage]);
-
   // Artifact change must cascade-reset dependent fields or the manifest will
   // carry slot names / config keys from the old artifact that don't exist on
   // the new one — a latent instantiation-time crash. We load the target
@@ -167,7 +125,7 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
   const handleArtifactChange = async (name: string) => {
     if (name === stage.artifact) return;
     const targetInsp = await loadArtifactIntrospection(stage.order, name);
-    queuePatch({
+    updateStageDraft(stage.order, {
       artifact: name,
       strategies: defaultStrategiesFor(targetInsp),
       strategy_configs: {},
@@ -177,7 +135,7 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
   };
 
   const handleActiveToggle = () => {
-    queuePatch({ active: !stage.active });
+    updateStageDraft(stage.order, { active: !stage.active });
   };
 
   const renderTab = () => {
@@ -194,9 +152,11 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
           <ConfigTab
             stage={stage}
             introspection={introspection}
-            onChangeConfig={(next) => queuePatch({ config: next })}
+            onChangeConfig={(next) =>
+              updateStageDraft(stage.order, { config: next })
+            }
             onChangeStrategyImpl={(slot, impl) =>
-              queuePatch({
+              updateStageDraft(stage.order, {
                 strategies: { ...stage.strategies, [slot]: impl },
                 // Picking a different impl invalidates the previous impl's
                 // config for that slot — blank the per-slot config so the
@@ -205,7 +165,7 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
               })
             }
             onChangeStrategyConfig={(slot, next) =>
-              queuePatch({
+              updateStageDraft(stage.order, {
                 strategy_configs: { ...stage.strategy_configs, [slot]: next },
               })
             }
@@ -217,7 +177,7 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
             stage={stage}
             supported={introspection.tool_binding_supported}
             onChange={(next: StageToolBinding | null) =>
-              queuePatch({ tool_binding: next })
+              updateStageDraft(stage.order, { tool_binding: next })
             }
           />
         );
@@ -227,7 +187,7 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
             stage={stage}
             supported={introspection.model_override_supported}
             onChange={(next: StageModelOverride | null) =>
-              queuePatch({ model_override: next })
+              updateStageDraft(stage.order, { model_override: next })
             }
           />
         );
@@ -236,7 +196,9 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
           <ChainTab
             stage={stage}
             chains={introspection.strategy_chains}
-            onChange={(next) => queuePatch({ chain_order: next })}
+            onChange={(next) =>
+              updateStageDraft(stage.order, { chain_order: next })
+            }
           />
         );
     }
@@ -267,24 +229,17 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
               {stage.name}
             </h3>
           </div>
-          <div className="flex items-center gap-2">
-            {saving && (
-              <span className="text-[10px] text-[var(--text-muted)] italic">
-                Saving…
-              </span>
-            )}
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="w-3.5 h-3.5 accent-[var(--accent)]"
-                checked={stage.active}
-                onChange={handleActiveToggle}
-              />
-              <span className="text-[11px] text-[var(--text-secondary)]">
-                Active
-              </span>
-            </label>
-          </div>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="w-3.5 h-3.5 accent-[var(--accent)]"
+              checked={stage.active}
+              onChange={handleActiveToggle}
+            />
+            <span className="text-[11px] text-[var(--text-secondary)]">
+              Active
+            </span>
+          </label>
         </div>
 
         {artifacts.length > 0 && (

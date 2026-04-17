@@ -1,10 +1,21 @@
-/* environmentBuilderStore — state for the v2 Environment Builder UI.
+/* environmentBuilderStore — local-draft state for the v2 Environment Builder.
  *
- * Holds: the active template manifest being edited, the selected stage, the
- * session-less catalog (stage × artifact), and per-stage introspection cache
- * so that switching artifacts feels instant. All mutations here are
- * optimistic — the backing PATCH / PUT call is awaited and the manifest
- * response re-seeds local state to stay in sync.
+ * Design — edits are *local JSON mutations*, not per-keystroke network
+ * calls. The store holds:
+ *
+ *   - `activeDetail`   : server-truth EnvironmentDetailV2, refreshed on
+ *                        load and after each successful save.
+ *   - `draft`          : a deep clone of the server manifest that all tab
+ *                        widgets mutate directly. This is what the left
+ *                        pane / right pane render off.
+ *   - `dirty`          : true once `draft` has been mutated since the
+ *                        last load/save; false again after `saveDraft`
+ *                        or `discardDraft`.
+ *
+ * The single network writer is `saveDraft()` — it PUTs the whole
+ * manifest in one round-trip (backend: `PUT /api/environments/{id}/manifest`).
+ * Per-stage PATCH is no longer exercised by the builder; the endpoint
+ * still exists for callers that want it.
  */
 import { create } from "zustand";
 
@@ -17,7 +28,6 @@ import {
   createEnvironment,
   duplicateEnvironment,
   fetchEnvironmentV2,
-  patchStageTemplate,
   replaceManifest,
 } from "../api/environment";
 import type {
@@ -40,6 +50,34 @@ function artifactKey(order: number, name: string): string {
   return `${order}:${name}`;
 }
 
+/** Deep-clone the manifest so the draft has no shared references with
+ * `activeDetail.manifest`. Plain JSON round-trip is sufficient — every
+ * field is serialisable (strings / numbers / booleans / nested
+ * objects / arrays). */
+function cloneManifest(m: EnvironmentManifest): EnvironmentManifest {
+  return JSON.parse(JSON.stringify(m)) as EnvironmentManifest;
+}
+
+/** Immutably apply an `UpdateStageTemplatePayload` to one stage entry. */
+function applyStagePatch(
+  entry: StageManifestEntry,
+  payload: UpdateStageTemplatePayload
+): StageManifestEntry {
+  const next: StageManifestEntry = { ...entry };
+  if (payload.artifact !== undefined) next.artifact = payload.artifact;
+  if (payload.strategies !== undefined) next.strategies = { ...payload.strategies };
+  if (payload.strategy_configs !== undefined)
+    next.strategy_configs = { ...payload.strategy_configs };
+  if (payload.config !== undefined) next.config = { ...payload.config };
+  if (payload.tool_binding !== undefined) next.tool_binding = payload.tool_binding;
+  if (payload.model_override !== undefined)
+    next.model_override = payload.model_override;
+  if (payload.chain_order !== undefined)
+    next.chain_order = { ...payload.chain_order };
+  if (payload.active !== undefined) next.active = payload.active;
+  return next;
+}
+
 interface EnvironmentBuilderState {
   // ── Catalog (session-less, loaded once) ─────────────
   catalogByOrder: CatalogByOrder;
@@ -51,6 +89,7 @@ interface EnvironmentBuilderState {
   // ── Active template being edited ─────────────────────
   activeEnvId: string | null;
   activeDetail: EnvironmentDetailV2 | null;
+  draft: EnvironmentManifest | null;
   dirty: boolean;
 
   // ── UI focus ─────────────────────────────────────────
@@ -60,7 +99,7 @@ interface EnvironmentBuilderState {
   error: string | null;
   saving: boolean;
 
-  // ── Actions ──────────────────────────────────────────
+  // ── Catalog actions ──────────────────────────────────
   loadCatalog: () => Promise<void>;
   loadArtifactsForStage: (order: number) => Promise<ArtifactInfo[]>;
   loadArtifactIntrospection: (
@@ -68,18 +107,22 @@ interface EnvironmentBuilderState {
     name: string
   ) => Promise<StageIntrospection>;
 
+  // ── Template lifecycle ───────────────────────────────
   createTemplate: (payload: CreateEnvironmentPayload) => Promise<string>;
   loadTemplate: (envId: string) => Promise<void>;
   closeTemplate: () => void;
+  duplicate: (newName: string) => Promise<string | null>;
 
+  // ── Local draft mutations (no network) ───────────────
   selectStage: (order: number | null) => void;
-
-  patchStage: (
+  updateStageDraft: (
     order: number,
     payload: UpdateStageTemplatePayload
-  ) => Promise<void>;
-  saveManifest: (next: EnvironmentManifest) => Promise<void>;
-  duplicate: (newName: string) => Promise<string | null>;
+  ) => void;
+
+  // ── Save / discard (network happens here and only here) ──
+  saveDraft: () => Promise<boolean>;
+  discardDraft: () => void;
 
   clearError: () => void;
 }
@@ -94,6 +137,7 @@ export const useEnvironmentBuilderStore = create<EnvironmentBuilderState>(
 
     activeEnvId: null,
     activeDetail: null,
+    draft: null,
     dirty: false,
 
     selectedStageOrder: null,
@@ -165,10 +209,12 @@ export const useEnvironmentBuilderStore = create<EnvironmentBuilderState>(
       set({ error: null });
       try {
         const detail = await fetchEnvironmentV2(envId);
-        const firstOrder = detail.manifest?.stages?.[0]?.order ?? null;
+        const manifest = detail.manifest ?? null;
+        const firstOrder = manifest?.stages?.[0]?.order ?? null;
         set({
           activeEnvId: envId,
           activeDetail: detail,
+          draft: manifest ? cloneManifest(manifest) : null,
           dirty: false,
           selectedStageOrder: firstOrder,
         });
@@ -181,35 +227,10 @@ export const useEnvironmentBuilderStore = create<EnvironmentBuilderState>(
       set({
         activeEnvId: null,
         activeDetail: null,
+        draft: null,
         dirty: false,
         selectedStageOrder: null,
       });
-    },
-
-    selectStage: (order) => set({ selectedStageOrder: order }),
-
-    patchStage: async (order, payload) => {
-      const envId = get().activeEnvId;
-      if (!envId) return;
-      set({ saving: true, error: null });
-      try {
-        const detail = await patchStageTemplate(envId, order, payload);
-        set({ activeDetail: detail, dirty: false, saving: false });
-      } catch (e) {
-        set({ error: String(e), saving: false });
-      }
-    },
-
-    saveManifest: async (next) => {
-      const envId = get().activeEnvId;
-      if (!envId) return;
-      set({ saving: true, error: null });
-      try {
-        const detail = await replaceManifest(envId, next);
-        set({ activeDetail: detail, dirty: false, saving: false });
-      } catch (e) {
-        set({ error: String(e), saving: false });
-      }
     },
 
     duplicate: async (newName) => {
@@ -224,6 +245,52 @@ export const useEnvironmentBuilderStore = create<EnvironmentBuilderState>(
       }
     },
 
+    selectStage: (order) => set({ selectedStageOrder: order }),
+
+    updateStageDraft: (order, payload) => {
+      const draft = get().draft;
+      if (!draft) return;
+      const nextStages = draft.stages.map((s) =>
+        s.order === order ? applyStagePatch(s, payload) : s
+      );
+      set({
+        draft: { ...draft, stages: nextStages },
+        dirty: true,
+      });
+    },
+
+    saveDraft: async () => {
+      const { activeEnvId, draft } = get();
+      if (!activeEnvId || !draft) return false;
+      set({ saving: true, error: null });
+      try {
+        const detail = await replaceManifest(activeEnvId, draft);
+        const saved = detail.manifest ?? null;
+        set({
+          activeDetail: detail,
+          // Re-seed the draft from the server response so any server-side
+          // normalisation (timestamp bumps, coerced enum values, etc.)
+          // becomes the new editing baseline.
+          draft: saved ? cloneManifest(saved) : null,
+          dirty: false,
+          saving: false,
+        });
+        return true;
+      } catch (e) {
+        set({ error: String(e), saving: false });
+        return false;
+      }
+    },
+
+    discardDraft: () => {
+      const { activeDetail } = get();
+      const saved = activeDetail?.manifest ?? null;
+      set({
+        draft: saved ? cloneManifest(saved) : null,
+        dirty: false,
+      });
+    },
+
     clearError: () => set({ error: null }),
   })
 );
@@ -233,10 +300,9 @@ export const useEnvironmentBuilderStore = create<EnvironmentBuilderState>(
 export function selectActiveStage(
   state: EnvironmentBuilderState
 ): StageManifestEntry | null {
-  const { selectedStageOrder, activeDetail } = state;
-  if (selectedStageOrder == null) return null;
-  const stages = activeDetail?.manifest?.stages ?? [];
-  return stages.find((s) => s.order === selectedStageOrder) ?? null;
+  const { selectedStageOrder, draft } = state;
+  if (selectedStageOrder == null || !draft) return null;
+  return draft.stages.find((s) => s.order === selectedStageOrder) ?? null;
 }
 
 export function selectStageIntrospection(

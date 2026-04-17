@@ -46,12 +46,16 @@ const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({
     catalogLoading,
     activeEnvId,
     activeDetail,
+    draft,
+    dirty,
     error,
     saving,
     loadTemplate,
     closeTemplate,
     createTemplate,
     duplicate,
+    saveDraft,
+    discardDraft,
     clearError,
   } = useEnvironmentBuilderStore();
 
@@ -76,10 +80,26 @@ const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({
     }
   }, [initialEnvId, activeEnvId, loadTemplate]);
 
+  // Stage list is driven by the *draft* manifest — that's the live editing
+  // surface. `activeDetail.manifest` remains the server-truth baseline used
+  // for Save / Discard comparisons inside the store.
   const stages: StageManifestEntry[] = React.useMemo(() => {
-    const list = activeDetail?.manifest?.stages ?? [];
+    const list = draft?.stages ?? [];
     return [...list].sort((a, b) => a.order - b.order);
-  }, [activeDetail]);
+  }, [draft]);
+
+  // Warn on browser tab close / reload if there are unsaved edits. Pure
+  // preventDefault semantics — modern browsers show their own generic
+  // "Leave site?" dialog; the returnValue assignment is the legacy API.
+  React.useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   const handleCreate = async (payload: CreateEnvironmentPayload) => {
     await createTemplate(payload);
@@ -90,12 +110,37 @@ const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({
     const base = activeDetail?.name ?? "environment";
     const nextName = window.prompt("Name for the copy", `${base} (copy)`);
     if (!nextName) return;
+    // Duplicate always acts on the server-saved baseline, never the dirty
+    // draft. Nudge the user to save first so the copy matches what they see.
+    if (dirty) {
+      const proceed = window.confirm(
+        "You have unsaved changes. Duplicate will copy the last saved version. Continue anyway?"
+      );
+      if (!proceed) return;
+    }
     const newId = await duplicate(nextName.trim());
     if (newId) await loadTemplate(newId);
   };
 
+  const handleSave = async () => {
+    if (!dirty) return;
+    await saveDraft();
+  };
+
+  const handleDiscard = () => {
+    if (!dirty) return;
+    if (!window.confirm("Discard all unsaved changes?")) return;
+    discardDraft();
+  };
+
   const handleInstantiate = async () => {
     if (!activeEnvId) return;
+    // A session always reads the server's saved manifest — silently
+    // instantiating a dirty draft would run the old config. Save first.
+    if (dirty) {
+      const ok = await saveDraft();
+      if (!ok) return;
+    }
     setInstantiating(true);
     setInstantiateError(null);
     try {
@@ -111,6 +156,9 @@ const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({
   };
 
   const handleClose = () => {
+    if (dirty && !window.confirm("Discard all unsaved changes and close?")) {
+      return;
+    }
     closeTemplate();
     onClose?.();
   };
@@ -230,11 +278,18 @@ const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {saving && (
+          {saving ? (
             <span className="text-[10px] text-[var(--text-muted)] italic">
               Saving…
             </span>
-          )}
+          ) : dirty ? (
+            <span
+              className="text-[10px] italic"
+              style={{ color: "var(--accent)" }}
+            >
+              Unsaved changes
+            </span>
+          ) : null}
           <button
             type="button"
             onClick={() => setShowCreate(true)}
@@ -261,8 +316,35 @@ const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({
           </button>
           <button
             type="button"
+            onClick={handleDiscard}
+            disabled={!dirty || saving}
+            className="text-[10px] px-3 py-1 rounded disabled:opacity-40"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!dirty || saving}
+            className="text-[10px] px-3 py-1 rounded disabled:opacity-40"
+            style={{
+              background: dirty ? "var(--accent)" : "var(--bg-tertiary)",
+              color: dirty ? "#000" : "var(--text-secondary)",
+              border: dirty ? "none" : "1px solid var(--border)",
+              fontWeight: dirty ? 600 : 400,
+            }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
             onClick={handleInstantiate}
-            disabled={instantiating}
+            disabled={instantiating || saving}
             className="text-[10px] px-3 py-1 rounded disabled:opacity-40"
             style={{ background: "var(--accent)", color: "#000" }}
           >
