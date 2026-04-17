@@ -2,6 +2,63 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.2 — 2026-04-17
+
+### Fixed — Environment Builder stage editing was silently broken
+
+The v0.8.0 builder shipped with `frontend/src/types/catalog.ts` field names
+that didn't match the library's actual `StageIntrospection.to_dict()`
+output. The tabs rendered, but most reads hit `undefined` and fell back to
+empty state — the user saw forms with no fields, chains that wouldn't
+reorder, and a "this stage does not support tool bindings" banner on every
+stage.
+
+- **Library-native field names everywhere.** `types/catalog.ts` now mirrors
+  the library dataclasses:
+  - `StageIntrospection`: `strategy_chains` (not `chains`),
+    `tool_binding_supported` / `model_override_supported`
+    (not `supports_*`), `config` (not `current_config`).
+  - `SlotIntrospection`: per-impl `impl_schemas` map + `description` /
+    `required`; the bogus per-slot `config` / `config_schema` fields are
+    gone.
+  - `ChainIntrospection`: `current_impls` / `available_impls` (not
+    `items` / `available_items`); dropped the never-sent `config_schema`.
+  - `ArtifactInfo`: now the library shape — added `version`,
+    `stability`, `requires`, `is_default`, `extra`; removed
+    `strategies` / `default_strategies` / `order` which the backend
+    never populated.
+- **Config forms read the right schema.** `ConfigTab` now picks the
+  current implementation's schema from `slot.impl_schemas[currentImpl]`
+  instead of the non-existent `slot.config_schema`.
+- **JSON Schema → flat adapter.** The library emits standard JSON Schema
+  (`{type: "object", properties: {...}, required: [...]}`), but
+  `ConfigSchemaForm` expects a flat `Record<field, FieldInfo>`. Added
+  `utils/jsonSchema.ts` with `flattenJsonSchema` + `defaultsFromJsonSchema`
+  so the widget can stay untouched.
+
+### Fixed — Artifact switch left stale data on the manifest
+
+- **Cascade-reset on artifact change.** Previously `handleArtifactChange`
+  sent `{artifact: name}` only, so the manifest kept the old artifact's
+  `strategies` / `strategy_configs` / `config` / `chain_order`. When the
+  old slot names didn't exist on the new artifact, instantiation would
+  fail. The Builder now loads the target artifact's introspection first
+  and includes fresh defaults in the same PATCH.
+- **Strategy impl switch clears the old per-slot config.** Picking a
+  different impl used to leave the previous impl's config dict in place,
+  which was almost always wrong because schemas differ per impl.
+- **Debounced PATCH no longer leaks across stage switches.** The
+  unmount-flush now captures the stage order it was buffering for, so a
+  fast row-switch no longer PATCHes the new stage with the old stage's
+  payload.
+- **Chain ordering respects explicit empty arrays.** Setting a chain to
+  `[]` is a valid user choice; the tab no longer snaps it back to the
+  library's canonical order.
+
+### Changed
+- Version label in the header now reads from `src/version.ts`
+  (`v0.8.2`) instead of the hardcoded `V0.7.0` left from v0.7 days.
+
 ## v0.8.1 — 2026-04-17
 
 ### Fixed

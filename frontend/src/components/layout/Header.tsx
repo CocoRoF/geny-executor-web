@@ -1,6 +1,7 @@
 import { usePipelineStore } from "../../stores/pipelineStore";
 import { useUIStore } from "../../stores/uiStore";
 import type { ViewMode } from "../../stores/uiStore";
+import { APP_VERSION } from "../../version";
 
 export default function Header() {
   const activePreset = usePipelineStore((s) => s.activePreset);
@@ -76,7 +77,7 @@ export default function Header() {
           className="text-[10px] uppercase tracking-widest"
           style={{ color: "var(--text-muted)" }}
         >
-          V0.7.0
+          {APP_VERSION}
         </div>
       </div>
     </header>

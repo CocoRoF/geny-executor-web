@@ -1,9 +1,9 @@
 /* ChainTab — edits per-chain item ordering for stages that declare a chain.
  *
  * Some stages (e.g. s04_guard, s14_postprocess) expose one or more chains
- * via StageIntrospection.chains. Each chain has:
- *   - items: the currently-configured order
- *   - available_items: every item that can be in the chain (superset)
+ * via StageIntrospection.strategy_chains. Each chain has:
+ *   - current_impls: the currently-configured order
+ *   - available_impls: every impl that can be in the chain (superset)
  *
  * The UI lets the user reorder the current items and toggle items in/out
  * of the chain.
@@ -31,10 +31,15 @@ const ChainTab: React.FC<ChainTabProps> = ({ stage, chains, onChange }) => {
     );
   }
 
+  // Library sends the chain's canonical order in `current_impls` and the
+  // reorderable superset in `available_impls`. A manifest entry's
+  // `chain_order[chainName]` overrides the canonical order once the user has
+  // touched it. An explicit empty array is a valid user choice and must not
+  // be collapsed back to the canonical list.
   const resolveItems = (chainName: string, info: ChainIntrospection): string[] => {
     const stored = stage.chain_order?.[chainName];
-    if (stored && stored.length > 0) return stored;
-    return info.items;
+    if (stored !== undefined) return stored;
+    return info.current_impls;
   };
 
   const emitChain = (chainName: string, nextItems: string[]) => {
@@ -75,7 +80,7 @@ const ChainTab: React.FC<ChainTabProps> = ({ stage, chains, onChange }) => {
       {chainNames.map((chainName) => {
         const info = chains[chainName];
         const items = resolveItems(chainName, info);
-        const inactive = info.available_items.filter(
+        const inactive = info.available_impls.filter(
           (x) => !items.includes(x)
         );
         return (
@@ -88,7 +93,7 @@ const ChainTab: React.FC<ChainTabProps> = ({ stage, chains, onChange }) => {
                 {chainName}
               </h5>
               <span className="text-[10px] text-[var(--text-muted)]">
-                {items.length}/{info.available_items.length} active
+                {items.length}/{info.available_impls.length} active
               </span>
             </header>
 
