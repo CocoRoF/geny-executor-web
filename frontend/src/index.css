@@ -99,6 +99,16 @@ code, .mono { font-family: 'JetBrains Mono', monospace; }
   box-shadow: 0 0 18px var(--accent-glow);
 }
 
+.stage-circle.editable {
+  border-style: dashed;
+  border-color: var(--accent);
+  cursor: pointer;
+}
+.stage-circle.editable:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow), 0 0 6px var(--accent-dim);
+}
+
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 18px var(--accent-glow), 0 0 50px rgba(200,164,92,0.05); }
   50% { box-shadow: 0 0 30px var(--accent-glow), 0 0 80px rgba(200,164,92,0.1); }

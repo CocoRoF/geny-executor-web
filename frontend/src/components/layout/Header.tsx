@@ -16,7 +16,7 @@ export default function Header() {
 
   const brandName = viewMode === "compare" ? "compare" : engine === "executor" ? "executor" : "harness";
 
-  const handleTabChange = (tab: string) => {
+  const handleEngineTab = (tab: string) => {
     if (tab === "compare") {
       setViewMode("compare");
     } else {
@@ -27,7 +27,18 @@ export default function Header() {
     }
   };
 
-  const selectedTab = viewMode === "compare" ? "compare" : engine;
+  const selectedEngineTab = viewMode === "compare" ? "compare" : engine;
+
+  const handleViewTab = (v: ViewMode) => {
+    setViewMode(v);
+  };
+
+  const VIEW_TABS: { value: ViewMode; label: string }[] = [
+    { value: "single", label: "Pipeline" },
+    { value: "tools", label: "Tools" },
+    { value: "environment", label: "Envs" },
+    { value: "history", label: "History" },
+  ];
 
   return (
     <header
@@ -42,23 +53,33 @@ export default function Header() {
           <span style={{ color: "var(--text-primary)" }}>web</span>
         </h1>
 
-        {/* Preset dropdown */}
-        <select
-          value={activePreset}
-          onChange={(e) => loadPipeline(e.target.value)}
-          className="text-xs px-3 py-1.5 rounded outline-none cursor-pointer"
-          style={{
-            background: "var(--bg-tertiary)",
-            color: "var(--text-secondary)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          {presets.map((p) => (
-            <option key={p.name} value={p.name}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        {/* View mode tabs */}
+        <ToggleGroup
+          options={VIEW_TABS}
+          selected={["tools", "environment", "history"].includes(viewMode) ? viewMode : "single"}
+          onSelect={(v) => handleViewTab(v as ViewMode)}
+          accent="var(--accent)"
+        />
+
+        {/* Preset dropdown — only in pipeline/single mode */}
+        {(viewMode === "single" || viewMode === "pipeline" || viewMode === "compare") && (
+          <select
+            value={activePreset}
+            onChange={(e) => loadPipeline(e.target.value)}
+            className="text-xs px-3 py-1.5 rounded outline-none cursor-pointer"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            {presets.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="flex items-center gap-4">
@@ -69,8 +90,8 @@ export default function Header() {
             { value: "harness", label: "Harness" },
             { value: "compare", label: "Compare" },
           ]}
-          selected={selectedTab}
-          onSelect={handleTabChange}
+          selected={selectedEngineTab}
+          onSelect={handleEngineTab}
           accent="var(--accent)"
         />
 
@@ -89,7 +110,7 @@ export default function Header() {
           className="text-[10px] uppercase tracking-widest"
           style={{ color: "var(--text-muted)" }}
         >
-          V0.5.3
+          V0.6.0
         </div>
       </div>
     </header>
