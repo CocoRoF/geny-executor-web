@@ -17,6 +17,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.services.exceptions import EnvironmentNotFoundError as _RealEnvNotFound
+
 
 # ── Fake service layer ───────────────────────────────────
 
@@ -31,8 +33,10 @@ def _make_fake_session(session_id: str, preset: str = "chat"):
         total_cost_usd=0.0,
         model="claude-sonnet-4-20250514",
         token_usage=SimpleNamespace(
-            input_tokens=0, output_tokens=0,
-            cache_creation_input_tokens=0, cache_read_input_tokens=0,
+            input_tokens=0,
+            output_tokens=0,
+            cache_creation_input_tokens=0,
+            cache_read_input_tokens=0,
         ),
     )
     return SimpleNamespace(
@@ -51,8 +55,11 @@ class FakePipelineService:
             name="test-pipeline",
             stages=[
                 SimpleNamespace(
-                    name="input_stage", order=1, category="A",
-                    is_active=True, strategies=[],
+                    name="input_stage",
+                    order=1,
+                    category="A",
+                    is_active=True,
+                    strategies=[],
                 ),
             ],
         )
@@ -89,14 +96,16 @@ class FakeSessionService:
     def list_all(self):
         result = []
         for sid, s in self._sessions.items():
-            result.append({
-                "session_id": sid,
-                "preset": self._presets.get(sid, "unknown"),
-                "freshness": s.freshness.value,
-                "message_count": len(s.state.messages),
-                "iteration": s.state.iteration,
-                "total_cost_usd": s.state.total_cost_usd,
-            })
+            result.append(
+                {
+                    "session_id": sid,
+                    "preset": self._presets.get(sid, "unknown"),
+                    "freshness": s.freshness.value,
+                    "message_count": len(s.state.messages),
+                    "iteration": s.state.iteration,
+                    "total_cost_usd": s.state.total_cost_usd,
+                }
+            )
         return result
 
 
@@ -118,6 +127,28 @@ class FakeToolService:
         return None
 
 
+class FakeEnvironmentNotFound(_RealEnvNotFound):
+    pass
+
+
+def _blank_manifest(name: str, description: str, tags: list[str], env_id: str) -> dict:
+    return {
+        "version": "2.0",
+        "metadata": {
+            "id": env_id,
+            "name": name,
+            "description": description,
+            "tags": list(tags),
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+        },
+        "model": {},
+        "pipeline": {},
+        "stages": [],
+        "tools": {},
+    }
+
+
 class FakeEnvironmentService:
     def __init__(self):
         self._envs: dict[str, dict] = {}
@@ -131,23 +162,69 @@ class FakeEnvironmentService:
                 "tags": e.get("tags", []),
                 "created_at": e.get("created_at", ""),
                 "updated_at": e.get("updated_at", ""),
-                "stage_count": 0,
-                "model": "",
+                "stage_count": len(
+                    (e.get("manifest") or {}).get("stages", [])
+                    or e.get("snapshot", {}).get("stages", [])
+                ),
+                "model": (e.get("manifest") or {}).get("model", {}).get("model", ""),
             }
             for eid, e in self._envs.items()
         ]
 
-    def save(self, session, mutator, name, description="", tags=None):
+    def _new_id(self) -> str:
         import uuid
-        eid = uuid.uuid4().hex[:12]
+
+        return uuid.uuid4().hex[:12]
+
+    def save(self, session, mutator, name, description="", tags=None):
+        eid = self._new_id()
+        tags_list = tags or []
         self._envs[eid] = {
             "id": eid,
             "name": name,
             "description": description,
-            "tags": tags or [],
+            "tags": tags_list,
             "created_at": "2025-01-01T00:00:00Z",
             "updated_at": "2025-01-01T00:00:00Z",
-            "snapshot": {},
+            "manifest": _blank_manifest(name, description, tags_list, eid),
+        }
+        return eid
+
+    def create_blank(self, name, description="", tags=None, base_preset=None):
+        eid = self._new_id()
+        tags_list = tags or []
+        manifest = _blank_manifest(name, description, tags_list, eid)
+        if base_preset:
+            manifest["metadata"]["base_preset"] = base_preset
+        self._envs[eid] = {
+            "id": eid,
+            "name": name,
+            "description": description,
+            "tags": tags_list,
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+            "manifest": manifest,
+        }
+        return eid
+
+    def create_from_preset(self, preset_name, name, description="", tags=None):
+        if preset_name not in {"minimal", "chat", "agent", "evaluator", "geny_vtuber"}:
+            raise ValueError(f"Unknown preset: {preset_name}")
+        eid = self._new_id()
+        tags_list = tags or []
+        manifest = _blank_manifest(name, description, tags_list, eid)
+        manifest["metadata"]["base_preset"] = preset_name
+        manifest["stages"] = [
+            {"order": 1, "name": "s01_input", "active": True, "artifact": "default"}
+        ]
+        self._envs[eid] = {
+            "id": eid,
+            "name": name,
+            "description": description,
+            "tags": tags_list,
+            "created_at": "2025-01-01T00:00:00Z",
+            "updated_at": "2025-01-01T00:00:00Z",
+            "manifest": manifest,
         }
         return eid
 
@@ -160,6 +237,58 @@ class FakeEnvironmentService:
         self._envs[env_id].update(data)
         return self._envs[env_id]
 
+    def update_manifest(self, env_id: str, manifest):
+        if env_id not in self._envs:
+            raise FakeEnvironmentNotFound(env_id)
+        # Accept either a dict or an object with a to_dict method.
+        payload = manifest.to_dict() if hasattr(manifest, "to_dict") else dict(manifest)
+        payload.setdefault("metadata", {})["id"] = env_id
+        self._envs[env_id]["manifest"] = payload
+        self._envs[env_id]["name"] = payload["metadata"].get(
+            "name", self._envs[env_id]["name"]
+        )
+        self._envs[env_id]["description"] = payload["metadata"].get(
+            "description", self._envs[env_id].get("description", "")
+        )
+        self._envs[env_id]["tags"] = list(
+            payload["metadata"].get("tags", self._envs[env_id].get("tags", []))
+        )
+        self._envs[env_id]["updated_at"] = "2025-01-01T00:00:00Z"
+        return self._envs[env_id]
+
+    def update_stage(self, env_id: str, order: int, **fields):
+        if env_id not in self._envs:
+            raise FakeEnvironmentNotFound(env_id)
+        manifest = self._envs[env_id].get("manifest")
+        if manifest is None:
+            raise ValueError("No manifest on environment")
+        stages = manifest.setdefault("stages", [])
+        target = next((s for s in stages if s.get("order") == order), None)
+        if target is None:
+            raise ValueError(f"Stage {order} not found in environment {env_id}")
+        for k, v in fields.items():
+            target[k] = v
+        manifest.setdefault("metadata", {})["updated_at"] = "2025-01-01T00:00:00Z"
+        self._envs[env_id]["updated_at"] = "2025-01-01T00:00:00Z"
+        return self._envs[env_id]
+
+    def duplicate(self, env_id: str, new_name: str):
+        src = self._envs.get(env_id)
+        if src is None:
+            return None
+        new_id = self._new_id()
+        import copy
+
+        clone = copy.deepcopy(src)
+        clone["id"] = new_id
+        clone["name"] = new_name
+        if "manifest" in clone and isinstance(clone["manifest"], dict):
+            clone["manifest"].setdefault("metadata", {})
+            clone["manifest"]["metadata"]["id"] = new_id
+            clone["manifest"]["metadata"]["name"] = new_name
+        self._envs[new_id] = clone
+        return new_id
+
     def delete(self, env_id: str):
         return self._envs.pop(env_id, None) is not None
 
@@ -170,10 +299,17 @@ class FakeEnvironmentService:
         return e
 
     def import_json(self, data: dict):
-        import uuid
-        eid = uuid.uuid4().hex[:12]
-        self._envs[eid] = {"id": eid, "name": "imported", **data}
+        eid = self._new_id()
+        self._envs[eid] = {"id": eid, "name": data.get("name", "imported"), **data}
         return eid
+
+    def instantiate_pipeline(self, env_id: str, *, api_key: str, strict: bool = True):
+        if env_id not in self._envs:
+            raise FakeEnvironmentNotFound(env_id)
+        return SimpleNamespace(id=f"pipe-from-{env_id}", _api_key=api_key)
+
+    def diff(self, a: str, b: str):
+        return []
 
 
 class FakeHistoryService:
@@ -205,19 +341,32 @@ class FakeHistoryService:
         return None
 
     def get_stats(self, session_id=None):
-        return {"total": 0, "completed": 0, "errors": 0, "total_cost": 0.0, "total_tokens": 0, "avg_duration_ms": 0.0}
+        return {
+            "total": 0,
+            "completed": 0,
+            "errors": 0,
+            "total_cost": 0.0,
+            "total_tokens": 0,
+            "avg_duration_ms": 0.0,
+        }
 
     def get_stage_stats(self, session_id=None):
         return []
 
     def get_cost_summary(self, session_id=None):
-        return {"session_id": session_id, "by_model": [], "total_cost": 0.0, "total_executions": 0}
+        return {
+            "session_id": session_id,
+            "by_model": [],
+            "total_cost": 0.0,
+            "total_executions": 0,
+        }
 
     def get_cost_trend(self, session_id=None, granularity="hour", limit=168):
         return []  # router expects a list of dicts
 
 
 # ── App factory ──────────────────────────────────────────
+
 
 def _create_test_app() -> FastAPI:
     """Build a FastAPI app with fake services injected directly (no lifespan)."""
@@ -252,6 +401,7 @@ def _create_test_app() -> FastAPI:
 
 
 # ── Fixtures ─────────────────────────────────────────────
+
 
 @pytest.fixture(scope="module")
 def test_app():

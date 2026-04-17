@@ -5,10 +5,13 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_create_session(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "sk-test-key",
+        },
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "session_id" in data
@@ -18,10 +21,13 @@ async def test_create_session(client):
 @pytest.mark.asyncio
 async def test_list_sessions(client):
     # Create one
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "sk-test-key",
+        },
+    )
     sid = resp.json()["session_id"]
 
     resp = await client.get("/api/sessions")
@@ -34,10 +40,13 @@ async def test_list_sessions(client):
 
 @pytest.mark.asyncio
 async def test_get_session(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "sk-test-key",
+        },
+    )
     sid = resp.json()["session_id"]
 
     resp = await client.get(f"/api/sessions/{sid}")
@@ -55,10 +64,13 @@ async def test_get_session_not_found(client):
 
 @pytest.mark.asyncio
 async def test_delete_session(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "sk-test-key",
+        },
+    )
     sid = resp.json()["session_id"]
 
     resp = await client.delete(f"/api/sessions/{sid}")
@@ -78,18 +90,24 @@ async def test_delete_session_not_found(client):
 
 @pytest.mark.asyncio
 async def test_create_session_no_api_key(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "",
+        },
+    )
     # Should fail if no default key configured
     assert resp.status_code == 400
 
 
 @pytest.mark.asyncio
 async def test_create_session_invalid_preset(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "invalid_preset",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "invalid_preset",
+            "api_key": "sk-test-key",
+        },
+    )
     assert resp.status_code == 422  # validation error

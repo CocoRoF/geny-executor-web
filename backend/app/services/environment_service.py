@@ -1,127 +1,427 @@
-"""Environment persistence service — save/load/diff pipeline snapshots."""
+"""Environment persistence service — save/load/diff pipeline environments.
+
+v0.8.0 shifts the on-disk format from bare ``snapshot`` payloads to full
+:class:`EnvironmentManifest` v2 dicts. Legacy files are loaded via silent
+migration: their ``snapshot`` key is rehydrated into an ``EnvironmentManifest``
+on read. New writes always emit the v2 ``manifest`` key.
+"""
 
 from __future__ import annotations
 
+import copy
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from geny_executor.core.mutation import PipelineMutator
+from geny_executor import (
+    EnvironmentManifest,
+    Pipeline,
+    PipelineMutator,
+    PipelinePresets,
+    PipelineSnapshot,
+)
+
+from app.services.exceptions import (
+    EnvironmentNotFoundError,
+    StageValidationError,
+)
+
+__all__ = [
+    "EnvironmentService",
+    "EnvironmentNotFoundError",
+    "StageValidationError",
+]
+
+
+_PRESET_FACTORIES = {
+    "minimal": PipelinePresets.minimal,
+    "chat": PipelinePresets.chat,
+    "agent": PipelinePresets.agent,
+    "evaluator": PipelinePresets.evaluator,
+    "geny_vtuber": PipelinePresets.geny_vtuber,
+}
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _fresh_id() -> str:
+    return uuid4().hex[:12]
 
 
 class EnvironmentService:
-    """Save, load, diff pipeline environments as JSON files."""
+    """Save, load, diff, and mutate pipeline environments on disk."""
 
     def __init__(self, storage_path: str = "./data/environments") -> None:
         self._storage = Path(storage_path)
         self._storage.mkdir(parents=True, exist_ok=True)
 
+    # ── File layout helpers ────────────────────────────────────
+
+    def _path(self, env_id: str) -> Path:
+        return self._storage / f"{env_id}.json"
+
+    def _read_raw(self, env_id: str) -> Optional[Dict[str, Any]]:
+        path = self._path(env_id)
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text())
+        except json.JSONDecodeError:
+            return None
+
+    def _write_raw(self, env_id: str, data: Dict[str, Any]) -> None:
+        self._path(env_id).write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+    # ── Manifest load / save ───────────────────────────────────
+
+    def load_manifest(self, env_id: str) -> Optional[EnvironmentManifest]:
+        """Return the stored environment as a v2 :class:`EnvironmentManifest`.
+
+        Accepts both the current ``manifest`` layout and the legacy
+        ``snapshot`` layout written by v0.7.x.
+        """
+        raw = self._read_raw(env_id)
+        if raw is None:
+            return None
+
+        if "manifest" in raw and isinstance(raw["manifest"], dict):
+            return EnvironmentManifest.from_dict(raw["manifest"])
+
+        snapshot_dict = raw.get("snapshot")
+        if isinstance(snapshot_dict, dict):
+            snap = PipelineSnapshot.from_dict(snapshot_dict)
+            return EnvironmentManifest.from_snapshot(
+                snap,
+                name=raw.get("name", "imported"),
+                description=raw.get("description", ""),
+                tags=raw.get("tags", []),
+            )
+        return None
+
+    def _write_manifest(
+        self,
+        env_id: str,
+        manifest: EnvironmentManifest,
+        *,
+        created_at: Optional[str] = None,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Persist *manifest* to disk in v2 layout and return the full record."""
+        # Keep the manifest's metadata id in sync with the filename.
+        manifest.metadata.id = env_id
+        now = _iso_now()
+        record: Dict[str, Any] = {
+            "id": env_id,
+            "name": manifest.metadata.name,
+            "description": manifest.metadata.description,
+            "tags": list(manifest.metadata.tags),
+            "manifest": manifest.to_dict(),
+            "created_at": created_at or manifest.metadata.created_at or now,
+            "updated_at": now,
+        }
+        if extra:
+            record.update(extra)
+        self._write_raw(env_id, record)
+        return record
+
+    # ── Legacy API (preserved for existing callers) ────────────
+
     def save(
         self,
-        session,
+        session,  # noqa: ARG002 — legacy signature; session reserved for future enrichment
         mutator: PipelineMutator,
         name: str,
         description: str = "",
         tags: Optional[List[str]] = None,
     ) -> str:
+        """Persist a live pipeline's current snapshot as a v2 manifest."""
         snapshot = mutator.snapshot(description=name)
-        env_id = uuid4().hex[:12]
-        now = datetime.now(timezone.utc).isoformat()
-
-        env_data = {
-            "id": env_id,
-            "name": name,
-            "description": description,
-            "tags": tags or [],
-            "snapshot": snapshot.to_dict(),
-            "created_at": now,
-            "updated_at": now,
-        }
-
-        (self._storage / f"{env_id}.json").write_text(
-            json.dumps(env_data, ensure_ascii=False, indent=2)
+        manifest = EnvironmentManifest.from_snapshot(
+            snapshot,
+            name=name,
+            description=description,
+            tags=tags or [],
         )
+        env_id = manifest.metadata.id or _fresh_id()
+        self._write_manifest(env_id, manifest)
         return env_id
 
     def load(self, env_id: str) -> Optional[Dict[str, Any]]:
-        path = self._storage / f"{env_id}.json"
-        if not path.exists():
-            return None
-        return json.loads(path.read_text())
+        """Return the raw JSON record for *env_id* (legacy callers)."""
+        return self._read_raw(env_id)
 
     def list_all(self) -> List[Dict[str, Any]]:
-        result = []
+        """List stored environments with UI-friendly summaries."""
+        result: List[Dict[str, Any]] = []
         for f in sorted(self._storage.glob("*.json")):
             try:
                 data = json.loads(f.read_text())
-                snapshot = data.get("snapshot", {})
-                model_cfg = snapshot.get("model_config", {})
-                stages = snapshot.get("stages", [])
-                result.append(
-                    {
-                        "id": data["id"],
-                        "name": data["name"],
-                        "description": data.get("description", ""),
-                        "tags": data.get("tags", []),
-                        "created_at": data.get("created_at", ""),
-                        "updated_at": data.get("updated_at", ""),
-                        "stage_count": len(stages),
-                        "model": model_cfg.get("model", "unknown"),
-                    }
-                )
-            except (json.JSONDecodeError, KeyError):
+            except (json.JSONDecodeError, OSError):
                 continue
+            summary = self._summarize(data)
+            if summary is not None:
+                result.append(summary)
         return result
 
-    def update(self, env_id: str, changes: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        data = self.load(env_id)
-        if data is None:
+    @staticmethod
+    def _summarize(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        env_id = data.get("id")
+        if not env_id:
             return None
+        manifest_dict = data.get("manifest")
+        if isinstance(manifest_dict, dict):
+            model = manifest_dict.get("model", {}).get("model", "unknown")
+            stages = manifest_dict.get("stages", [])
+        else:
+            snapshot = data.get("snapshot", {})
+            model = snapshot.get("model_config", {}).get("model", "unknown")
+            stages = snapshot.get("stages", [])
+        return {
+            "id": env_id,
+            "name": data.get("name", ""),
+            "description": data.get("description", ""),
+            "tags": data.get("tags", []),
+            "created_at": data.get("created_at", ""),
+            "updated_at": data.get("updated_at", ""),
+            "stage_count": len(stages),
+            "model": model,
+        }
+
+    def update(self, env_id: str, changes: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Patch top-level metadata (name / description / tags)."""
+        raw = self._read_raw(env_id)
+        if raw is None:
+            return None
+        manifest = self.load_manifest(env_id)
         for key in ("name", "description", "tags"):
             if key in changes and changes[key] is not None:
-                data[key] = changes[key]
-        data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        (self._storage / f"{env_id}.json").write_text(
-            json.dumps(data, ensure_ascii=False, indent=2)
-        )
-        return data
+                raw[key] = changes[key]
+                if manifest is not None:
+                    setattr(manifest.metadata, key, changes[key])
+        if manifest is not None:
+            manifest.metadata.updated_at = _iso_now()
+            raw["manifest"] = manifest.to_dict()
+        raw["updated_at"] = _iso_now()
+        self._write_raw(env_id, raw)
+        return raw
 
     def delete(self, env_id: str) -> bool:
-        path = self._storage / f"{env_id}.json"
+        path = self._path(env_id)
         if path.exists():
             path.unlink()
             return True
         return False
 
     def export_json(self, env_id: str) -> Optional[str]:
-        data = self.load(env_id)
-        if data is None:
+        raw = self._read_raw(env_id)
+        if raw is None:
             return None
-        return json.dumps(data, ensure_ascii=False, indent=2)
+        return json.dumps(raw, ensure_ascii=False, indent=2)
 
     def import_json(self, data: Dict[str, Any]) -> str:
-        env_id = data.get("id") or uuid4().hex[:12]
+        """Import a previously exported environment JSON.
+
+        Accepts both v0.7.x payloads (top-level ``snapshot``) and v2
+        payloads (top-level ``manifest``). The incoming id is preserved
+        when present, otherwise a fresh one is generated.
+        """
+        data = copy.deepcopy(data)
+        env_id = data.get("id") or _fresh_id()
         data["id"] = env_id
-        now = datetime.now(timezone.utc).isoformat()
+        now = _iso_now()
         data.setdefault("created_at", now)
         data["updated_at"] = now
-        (self._storage / f"{env_id}.json").write_text(
-            json.dumps(data, ensure_ascii=False, indent=2)
-        )
+
+        # Normalize into v2 on import so everything downstream is uniform.
+        if "manifest" not in data and "snapshot" in data:
+            snap = PipelineSnapshot.from_dict(data["snapshot"])
+            manifest = EnvironmentManifest.from_snapshot(
+                snap,
+                name=data.get("name", "imported"),
+                description=data.get("description", ""),
+                tags=data.get("tags", []),
+            )
+            manifest.metadata.id = env_id
+            data["manifest"] = manifest.to_dict()
+            data.pop("snapshot", None)
+        elif "manifest" in data and isinstance(data["manifest"], dict):
+            migrated = EnvironmentManifest.from_dict(data["manifest"])
+            migrated.metadata.id = env_id
+            data["manifest"] = migrated.to_dict()
+
+        self._write_raw(env_id, data)
         return env_id
 
+    # ── v2 — template CRUD ─────────────────────────────────────
+
+    def create_blank(
+        self,
+        name: str,
+        description: str = "",
+        tags: Optional[List[str]] = None,
+        base_preset: Optional[str] = None,
+    ) -> str:
+        """Create a new environment template without a live session.
+
+        When *base_preset* names a registered PipelinePresets factory, that
+        preset's snapshot is used as the starting point. Otherwise a bare
+        manifest is created with no stages (the UI fills them in).
+        """
+        if base_preset:
+            manifest = self._manifest_from_preset(
+                base_preset, name=name, description=description, tags=tags or []
+            )
+        else:
+            manifest = EnvironmentManifest.from_snapshot(
+                PipelineSnapshot(pipeline_name=name),
+                name=name,
+                description=description,
+                tags=tags or [],
+            )
+        env_id = manifest.metadata.id or _fresh_id()
+        self._write_manifest(env_id, manifest)
+        return env_id
+
+    def create_from_preset(
+        self,
+        preset_name: str,
+        name: str,
+        description: str = "",
+        tags: Optional[List[str]] = None,
+    ) -> str:
+        manifest = self._manifest_from_preset(
+            preset_name, name=name, description=description, tags=tags or []
+        )
+        env_id = manifest.metadata.id or _fresh_id()
+        self._write_manifest(env_id, manifest)
+        return env_id
+
+    def _manifest_from_preset(
+        self,
+        preset_name: str,
+        *,
+        name: str,
+        description: str,
+        tags: List[str],
+    ) -> EnvironmentManifest:
+        factory = _PRESET_FACTORIES.get(preset_name)
+        if factory is None:
+            raise ValueError(f"Unknown preset: {preset_name}")
+        pipeline = factory(api_key="preset-introspection-key")
+        snapshot = PipelineMutator(pipeline).snapshot(description=name)
+        return EnvironmentManifest.from_snapshot(
+            snapshot,
+            name=name,
+            description=description,
+            tags=tags,
+        )
+
+    def update_manifest(
+        self, env_id: str, manifest: EnvironmentManifest
+    ) -> Dict[str, Any]:
+        """Replace the entire manifest payload (template edit)."""
+        raw = self._read_raw(env_id)
+        if raw is None:
+            raise EnvironmentNotFoundError(env_id)
+        manifest.metadata.id = env_id
+        if not manifest.metadata.created_at:
+            manifest.metadata.created_at = raw.get("created_at", _iso_now())
+        return self._write_manifest(env_id, manifest, created_at=raw.get("created_at"))
+
+    def update_stage(
+        self,
+        env_id: str,
+        order: int,
+        *,
+        artifact: Optional[str] = None,
+        strategies: Optional[Dict[str, str]] = None,
+        strategy_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+        config: Optional[Dict[str, Any]] = None,
+        tool_binding: Optional[Dict[str, Any]] = None,
+        model_override: Optional[Dict[str, Any]] = None,
+        chain_order: Optional[Dict[str, List[str]]] = None,
+        active: Optional[bool] = None,
+    ) -> Dict[str, Any]:
+        """Patch a single stage in the manifest.
+
+        Only non-None parameters are applied. Raises
+        :class:`EnvironmentNotFoundError` if *env_id* is unknown, or
+        ``ValueError`` if there is no stage at *order* in the manifest.
+        """
+        manifest = self.load_manifest(env_id)
+        if manifest is None:
+            raise EnvironmentNotFoundError(env_id)
+
+        entries = manifest.stage_entries()
+        target = next((e for e in entries if e.order == order), None)
+        if target is None:
+            raise ValueError(f"Stage {order} not found in environment {env_id}")
+
+        if artifact is not None:
+            target.artifact = artifact
+        if strategies is not None:
+            target.strategies = dict(strategies)
+        if strategy_configs is not None:
+            target.strategy_configs = {k: dict(v) for k, v in strategy_configs.items()}
+        if config is not None:
+            target.config = dict(config)
+        if tool_binding is not None:
+            target.tool_binding = dict(tool_binding)
+        if model_override is not None:
+            target.model_override = dict(model_override)
+        if chain_order is not None:
+            target.chain_order = {k: list(v) for k, v in chain_order.items()}
+        if active is not None:
+            target.active = active
+
+        manifest.set_stage_entries(entries)
+        manifest.metadata.updated_at = _iso_now()
+        return self._write_manifest(env_id, manifest)
+
+    def duplicate(self, env_id: str, new_name: str) -> Optional[str]:
+        """Deep-copy the environment under a fresh id + name."""
+        manifest = self.load_manifest(env_id)
+        if manifest is None:
+            return None
+        new_id = _fresh_id()
+        clone = EnvironmentManifest.from_dict(copy.deepcopy(manifest.to_dict()))
+        clone.metadata.id = new_id
+        clone.metadata.name = new_name
+        clone.metadata.created_at = _iso_now()
+        clone.metadata.updated_at = _iso_now()
+        self._write_manifest(new_id, clone)
+        return new_id
+
+    def instantiate_pipeline(
+        self,
+        env_id: str,
+        *,
+        api_key: str,
+        strict: bool = True,
+    ) -> Pipeline:
+        """Load the manifest and build a Pipeline via the library helper."""
+        manifest = self.load_manifest(env_id)
+        if manifest is None:
+            raise EnvironmentNotFoundError(env_id)
+        return Pipeline.from_manifest(manifest, api_key=api_key, strict=strict)
+
+    # ── Diff ───────────────────────────────────────────────────
+
     def diff(self, env_id_a: str, env_id_b: str) -> List[Dict[str, Any]]:
-        a = self.load(env_id_a)
-        b = self.load(env_id_b)
+        a = self._read_raw(env_id_a)
+        b = self._read_raw(env_id_b)
         if a is None or b is None:
             return []
-
-        snap_a = a.get("snapshot", {})
-        snap_b = b.get("snapshot", {})
+        # Prefer the manifest payload when both sides have one — that's
+        # what editors actually care about.
+        left = a.get("manifest") or a.get("snapshot") or {}
+        right = b.get("manifest") or b.get("snapshot") or {}
         changes: List[Dict[str, Any]] = []
-        self._diff_recursive(snap_a, snap_b, "", changes)
+        self._diff_recursive(left, right, "", changes)
         return changes
 
     def _diff_recursive(

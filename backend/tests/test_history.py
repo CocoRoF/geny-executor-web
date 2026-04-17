@@ -15,10 +15,13 @@ async def test_list_global_history(client):
 @pytest.mark.asyncio
 async def test_list_session_history(client):
     # Create a session first
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "sk-test-key",
+        },
+    )
     sid = resp.json()["session_id"]
 
     resp = await client.get(f"/api/sessions/{sid}/history")
@@ -30,10 +33,13 @@ async def test_list_session_history(client):
 
 @pytest.mark.asyncio
 async def test_get_run_not_found(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "api_key": "sk-test-key",
-    })
+    resp = await client.post(
+        "/api/sessions",
+        json={
+            "preset": "chat",
+            "api_key": "sk-test-key",
+        },
+    )
     sid = resp.json()["session_id"]
 
     resp = await client.get(f"/api/sessions/{sid}/history/nonexistent")
