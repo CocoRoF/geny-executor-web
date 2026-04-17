@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from geny_executor.core.mutation import PipelineMutator
-from geny_executor.core.snapshot import PipelineSnapshot
 
 
 class EnvironmentService:
@@ -60,16 +59,18 @@ class EnvironmentService:
                 snapshot = data.get("snapshot", {})
                 model_cfg = snapshot.get("model_config", {})
                 stages = snapshot.get("stages", [])
-                result.append({
-                    "id": data["id"],
-                    "name": data["name"],
-                    "description": data.get("description", ""),
-                    "tags": data.get("tags", []),
-                    "created_at": data.get("created_at", ""),
-                    "updated_at": data.get("updated_at", ""),
-                    "stage_count": len(stages),
-                    "model": model_cfg.get("model", "unknown"),
-                })
+                result.append(
+                    {
+                        "id": data["id"],
+                        "name": data["name"],
+                        "description": data.get("description", ""),
+                        "tags": data.get("tags", []),
+                        "created_at": data.get("created_at", ""),
+                        "updated_at": data.get("updated_at", ""),
+                        "stage_count": len(stages),
+                        "model": model_cfg.get("model", "unknown"),
+                    }
+                )
             except (json.JSONDecodeError, KeyError):
                 continue
         return result
@@ -135,19 +136,49 @@ class EnvironmentService:
             for k in sorted(all_keys):
                 path = f"{prefix}.{k}" if prefix else k
                 if k not in old:
-                    changes.append({"path": path, "type": "added", "old_value": None, "new_value": new[k]})
+                    changes.append(
+                        {
+                            "path": path,
+                            "type": "added",
+                            "old_value": None,
+                            "new_value": new[k],
+                        }
+                    )
                 elif k not in new:
-                    changes.append({"path": path, "type": "removed", "old_value": old[k], "new_value": None})
+                    changes.append(
+                        {
+                            "path": path,
+                            "type": "removed",
+                            "old_value": old[k],
+                            "new_value": None,
+                        }
+                    )
                 else:
                     self._diff_recursive(old[k], new[k], path, changes)
         elif isinstance(old, list) and isinstance(new, list):
             for i in range(max(len(old), len(new))):
                 path = f"{prefix}[{i}]"
                 if i >= len(old):
-                    changes.append({"path": path, "type": "added", "old_value": None, "new_value": new[i]})
+                    changes.append(
+                        {
+                            "path": path,
+                            "type": "added",
+                            "old_value": None,
+                            "new_value": new[i],
+                        }
+                    )
                 elif i >= len(new):
-                    changes.append({"path": path, "type": "removed", "old_value": old[i], "new_value": None})
+                    changes.append(
+                        {
+                            "path": path,
+                            "type": "removed",
+                            "old_value": old[i],
+                            "new_value": None,
+                        }
+                    )
                 else:
                     self._diff_recursive(old[i], new[i], path, changes)
         elif old != new:
-            changes.append({"path": prefix, "type": "changed", "old_value": old, "new_value": new})
+            changes.append(
+                {"path": prefix, "type": "changed", "old_value": old, "new_value": new}
+            )

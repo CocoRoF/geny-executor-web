@@ -7,7 +7,6 @@ from fastapi import APIRouter, HTTPException, Request
 from app.schemas.tool_manager import (
     ConnectMCPRequest,
     CreateAdhocToolRequest,
-    EnableToolRequest,
     MCPServerListResponse,
     MCPServerResponse,
     TestToolRequest,
@@ -94,9 +93,7 @@ async def create_adhoc_tool(
 ):
     session = _get_session(request, session_id)
     try:
-        info = _tool_svc(request).create_adhoc_tool(
-            session, body.model_dump()
-        )
+        info = _tool_svc(request).create_adhoc_tool(session, body.model_dump())
     except Exception as e:
         raise HTTPException(400, str(e))
     return _info_to_response(info)
@@ -192,9 +189,7 @@ async def connect_mcp_server(
 
 
 @router.delete("/mcp-servers/{server_name}")
-async def disconnect_mcp_server(
-    request: Request, session_id: str, server_name: str
-):
+async def disconnect_mcp_server(request: Request, session_id: str, server_name: str):
     _get_session(request, session_id)
     mcp = getattr(request.app.state, "mcp_manager", None)
     if mcp is None:

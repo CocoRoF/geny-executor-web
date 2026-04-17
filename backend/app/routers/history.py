@@ -51,7 +51,9 @@ async def list_session_history(
     )
 
 
-@router.get("/sessions/{session_id}/history/{run_id}", response_model=ExecutionDetailResponse)
+@router.get(
+    "/sessions/{session_id}/history/{run_id}", response_model=ExecutionDetailResponse
+)
 async def get_run(request: Request, session_id: str, run_id: str):
     run = _history_svc(request).get_detail(run_id)
     if run is None or run.get("session_id") != session_id:

@@ -5,10 +5,10 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
-from geny_executor.tools.adhoc import AdhocToolDefinition, AdhocToolFactory
+from geny_executor.tools.adhoc import AdhocToolDefinition
 from geny_executor.tools.composer import ToolComposer, ToolInfo, ToolPreset
 from geny_executor.tools.registry import ToolRegistry
-from geny_executor.tools.base import ToolContext, ToolResult
+from geny_executor.tools.base import ToolContext
 from geny_executor.tools.scope import ToolScope, ToolScopeManager, ToolScopeRule
 from geny_executor.tools.sandbox import ToolSandbox, SandboxPolicy
 

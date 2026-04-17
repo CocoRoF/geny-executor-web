@@ -40,7 +40,9 @@ async def execute_stream(websocket: WebSocket, session_id: str):
 
     session = session_service.get(session_id)
     if not session:
-        await websocket.send_json({"type": "error", "data": {"error": "Session not found"}})
+        await websocket.send_json(
+            {"type": "error", "data": {"error": "Session not found"}}
+        )
         await websocket.close()
         return
 
@@ -50,7 +52,9 @@ async def execute_stream(websocket: WebSocket, session_id: str):
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
-                await websocket.send_json({"type": "error", "data": {"error": "Invalid JSON"}})
+                await websocket.send_json(
+                    {"type": "error", "data": {"error": "Invalid JSON"}}
+                )
                 continue
 
             if msg.get("type") == "execute":
@@ -67,7 +71,9 @@ async def execute_stream(websocket: WebSocket, session_id: str):
                     except TypeError:
                         # PyO3 objects (geny-harness) don't support asdict
                         event_dict = {
-                            "type": getattr(event, "type", getattr(event, "event_type", "")),
+                            "type": getattr(
+                                event, "type", getattr(event, "event_type", "")
+                            ),
                             "stage": getattr(event, "stage", ""),
                             "iteration": getattr(event, "iteration", 0),
                             "timestamp": getattr(event, "timestamp", ""),

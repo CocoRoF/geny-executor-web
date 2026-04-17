@@ -49,14 +49,16 @@ def _stage_to_detail(stage) -> StageDetailResponse:
         for impl_name, impl_cls in slot.registry.items():
             impl_descs[impl_name] = getattr(impl_cls, "description", "") or impl_name
 
-        strategies.append(StrategyDetailResponse(
-            slot_name=slot_name,
-            current_impl=slot.current_impl,
-            available_impls=slot.available_impls,
-            config=slot.strategy.get_config() if slot.strategy else {},
-            config_schema=schema,
-            impl_descriptions=impl_descs,
-        ))
+        strategies.append(
+            StrategyDetailResponse(
+                slot_name=slot_name,
+                current_impl=slot.current_impl,
+                available_impls=slot.available_impls,
+                config=slot.strategy.get_config() if slot.strategy else {},
+                config_schema=schema,
+                impl_descriptions=impl_descs,
+            )
+        )
 
     stage_schema = {}
     cs = stage.get_config_schema()
@@ -78,14 +80,16 @@ def _description_to_detail(desc) -> StageDetailResponse:
     """Convert a StageDescription (from pipeline.describe()) to response."""
     strategies = []
     for s in desc.strategies:
-        strategies.append(StrategyDetailResponse(
-            slot_name=s.slot_name,
-            current_impl=s.current_impl,
-            available_impls=s.available_impls,
-            config=s.config,
-            config_schema={},
-            impl_descriptions={},
-        ))
+        strategies.append(
+            StrategyDetailResponse(
+                slot_name=s.slot_name,
+                current_impl=s.current_impl,
+                available_impls=s.available_impls,
+                config=s.config,
+                config_schema={},
+                impl_descriptions={},
+            )
+        )
     return StageDetailResponse(
         name=desc.name,
         order=desc.order,
@@ -252,7 +256,9 @@ async def get_mutation_log(request: Request, session_id: str):
     return MutationLogResponse(
         mutations=[
             MutationRecordResponse(
-                timestamp=r.timestamp.isoformat() if hasattr(r.timestamp, "isoformat") else str(r.timestamp),
+                timestamp=r.timestamp.isoformat()
+                if hasattr(r.timestamp, "isoformat")
+                else str(r.timestamp),
                 mutation_type=r.kind.value,
                 target=r.target,
                 details={

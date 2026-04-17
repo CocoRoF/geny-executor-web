@@ -71,12 +71,15 @@ export interface ToolPreset {
   name: string;
   description: string;
   tools: string[];
+  tool_names: string[];
   tags: string[];
 }
 
 export interface ToolScope {
   global_scope: Record<string, unknown>;
   stage_scopes: Record<number, Record<string, unknown>>;
+  mode: "allowlist" | "blocklist";
+  patterns: string[];
 }
 
 // ── Environment ─────────────────────────────────────────

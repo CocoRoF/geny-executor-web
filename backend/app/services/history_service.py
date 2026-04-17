@@ -6,7 +6,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 _ALLOWED_ORDERS = frozenset(
@@ -352,7 +352,8 @@ class HistoryService:
             params.append(status)
         where = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
         return self._db.execute(
-            f"SELECT COUNT(*) FROM executions {where}", params  # noqa: S608
+            f"SELECT COUNT(*) FROM executions {where}",
+            params,  # noqa: S608
         ).fetchone()[0]
 
     def get_events(self, run_id: str) -> List[Dict]:
@@ -418,9 +419,7 @@ class HistoryService:
             ],
         }
 
-    def get_stage_stats(
-        self, session_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def get_stage_stats(self, session_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Aggregate stage performance stats."""
         where = "WHERE e.session_id = ?" if session_id else ""
         params: List[Any] = [session_id] if session_id else []
@@ -448,9 +447,7 @@ class HistoryService:
 
     # ── Cost Analysis ────────────────────────────────────
 
-    def get_cost_summary(
-        self, session_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def get_cost_summary(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Cost summary grouped by model."""
         where = "WHERE session_id = ?" if session_id else ""
         params: List[Any] = [session_id] if session_id else []
