@@ -2,8 +2,8 @@
  *
  * The schema comes from /api/catalog and describes a stage's config, a
  * strategy's config, or a model-override block. Values are the currently
- * stored config dict. onChange is called with the full next dict after every
- * edit — the caller decides when to persist (debounced patchStage).
+ * stored config dict. onChange is called with the full next dict after
+ * every edit — the caller writes it straight into the local draft.
  */
 import React from "react";
 

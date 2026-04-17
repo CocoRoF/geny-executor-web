@@ -2,6 +2,54 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.4 — 2026-04-17
+
+### Changed — Environment Builder: local draft + single Save
+
+The builder no longer PATCHes the backend on every field edit. Every
+keystroke, checkbox, artifact switch, and chain reorder previously
+fired a debounced `PATCH /api/environments/{id}/stages/{order}`
+round-trip, which meant a 16-stage edit session racked up dozens of
+writes and the "current state" was spread across a server row and a
+volatile in-flight buffer. Now:
+
+- **All mutations are local.** The store holds a `draft: EnvironmentManifest`
+  — a deep clone of the server's manifest. `updateStageDraft(order, payload)`
+  immutably mutates one stage entry in the draft and flips `dirty=true`.
+  No network call.
+- **`PUT /api/environments/{id}/manifest` is the single writer.** The
+  new `saveDraft()` action sends the whole manifest in one request;
+  on success the server response re-seeds the draft (picking up any
+  server-side normalisation) and clears `dirty`.
+- **Explicit Save / Discard in the header.** The Save button is the
+  primary accent-coloured action while dirty, greyed out otherwise.
+  Discard confirms, then resets the draft to the server-saved baseline.
+- **"Start session" saves first.** Instantiating a session always
+  reads the server's saved manifest — running a dirty draft would
+  silently execute the old config. If dirty, `saveDraft()` runs
+  before `createSessionFromEnv`.
+- **"Close" and "Duplicate" prompt on dirty.** Close confirms before
+  discarding; Duplicate warns that the copy comes from the saved
+  baseline, not the draft.
+- **`beforeunload` guard.** Reloading the tab or closing the browser
+  while dirty triggers the browser's native leave-site dialog.
+
+**Why**: every per-field PATCH was a chance for the server state and
+the UI's optimistic buffer to desync (see the v0.8.2 patches for
+cascade-reset and debounce-leakage bugs this architecture kept
+producing). A single atomic save is both simpler to reason about and
+more honest about what "the draft" means.
+
+### Removed
+- Per-stage PATCH from the builder code path. The
+  `PATCH /api/environments/{id}/stages/{order}` backend route still
+  exists for external callers, but the frontend `patchStageTemplate`
+  helper is gone — unused code.
+
+### Upgraded
+- `geny-executor-web` backend: `0.8.3 → 0.8.4`
+- `geny-executor-web` frontend: `0.8.3 → 0.8.4`
+
 ## v0.8.3 — 2026-04-17
 
 ### Fixed — Environment Builder offered Tool / Model / Chain inputs on every stage

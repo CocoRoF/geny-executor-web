@@ -11,7 +11,6 @@ import type {
   CreateEnvironmentPayload,
   EnvironmentDetailV2,
   EnvironmentManifest,
-  UpdateStageTemplatePayload,
 } from "../types/environment";
 
 // ── Environments ────────────────────────────────────────
@@ -67,20 +66,6 @@ export async function replaceManifest(
     {
       method: "PUT",
       body: JSON.stringify({ manifest }),
-    }
-  );
-}
-
-export async function patchStageTemplate(
-  envId: string,
-  order: number,
-  payload: UpdateStageTemplatePayload
-): Promise<EnvironmentDetailV2> {
-  return apiFetch<EnvironmentDetailV2>(
-    `/api/environments/${envId}/stages/${order}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(payload),
     }
   );
 }
