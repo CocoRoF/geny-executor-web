@@ -6,7 +6,6 @@ import type {
   EnvironmentDiffResult,
   EnvironmentSummary,
   ExecutionRun,
-  PresetInfo,
 } from "../types/editor";
 import type {
   CreateEnvironmentPayload,
@@ -140,11 +139,8 @@ export async function diffEnvironments(
 }
 
 // ── Presets ─────────────────────────────────────────────
-
-export async function fetchPresets(): Promise<PresetInfo[]> {
-  const res = await apiFetch<{ presets: PresetInfo[] }>("/api/presets");
-  return res.presets;
-}
+// Note: preset *listing* lives in api/pipeline.ts — the /api/pipeline/presets
+// route. The endpoints below are per-environment mutations, not a catalog.
 
 export async function markAsPreset(envId: string): Promise<void> {
   await apiFetch(`/api/environments/${envId}/preset`, { method: "POST" });

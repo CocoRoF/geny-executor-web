@@ -2,6 +2,29 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.1 — 2026-04-17
+
+### Fixed
+- **Environment Builder left pane was empty on a blank environment.** The
+  backend's `create_blank` was building its manifest from
+  `PipelineSnapshot(pipeline_name=name)` — a snapshot with zero stages —
+  so the 16-row `StageList` had nothing to render and the environment's
+  name was silently shadowed onto `metadata.base_preset`. Switched to
+  `EnvironmentManifest.blank_manifest(...)` (new in
+  `geny-executor v0.13.1`), which seeds all 16 stages inactive with
+  their default artifact and strategy picks.
+- **`fetchPresets` was hitting a non-existent `/api/presets` route.** The
+  frontend had two `fetchPresets` functions: the working one in
+  `api/pipeline.ts` (`/api/pipeline/presets`) and a duplicate in
+  `api/environment.ts` targeting a never-implemented `/api/presets`.
+  `CreateEnvironmentModal` and `environmentStore` were importing the
+  broken one, so opening the "From preset" tab logged a 404 and the
+  dropdown never populated. Removed the duplicate; both callers now use
+  the `api/pipeline.ts` implementation.
+
+### Changed
+- Bumped `geny-executor` pin to `>=0.13.1`.
+
 ## v0.8.0 — 2026-04-17
 
 ### Added

@@ -4,8 +4,8 @@ import type {
   EnvironmentSummary,
   EnvironmentDetail,
   EnvironmentDiffResult,
-  PresetInfo,
 } from "../types/editor";
+import type { PresetInfo } from "../types/pipeline";
 import {
   fetchEnvironments,
   saveEnvironment,
@@ -15,11 +15,11 @@ import {
   exportEnvironment,
   importEnvironment,
   diffEnvironments,
-  fetchPresets,
   markAsPreset,
   unmarkPreset,
   getShareLink,
 } from "../api/environment";
+import { fetchPresets } from "../api/pipeline";
 
 interface EnvironmentStore {
   // State

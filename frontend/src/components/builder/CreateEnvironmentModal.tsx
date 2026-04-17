@@ -10,8 +10,8 @@
  */
 import React from "react";
 
-import { fetchPresets } from "../../api/environment";
-import type { PresetInfo } from "../../types/editor";
+import { fetchPresets } from "../../api/pipeline";
+import type { PresetInfo } from "../../types/pipeline";
 import type {
   CreateEnvironmentMode,
   CreateEnvironmentPayload,

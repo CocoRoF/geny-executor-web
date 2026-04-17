@@ -268,19 +268,18 @@ class EnvironmentService:
         """Create a new environment template without a live session.
 
         When *base_preset* names a registered PipelinePresets factory, that
-        preset's snapshot is used as the starting point. Otherwise a bare
-        manifest is created with no stages (the UI fills them in).
+        preset's snapshot is used as the starting point. Otherwise the
+        library's ``blank_manifest`` seeds every stage inactive with its
+        default artifact + strategy picks — the UI renders 16 rows, the
+        user toggles what they want, rebuild succeeds.
         """
         if base_preset:
             manifest = self._manifest_from_preset(
                 base_preset, name=name, description=description, tags=tags or []
             )
         else:
-            manifest = EnvironmentManifest.from_snapshot(
-                PipelineSnapshot(pipeline_name=name),
-                name=name,
-                description=description,
-                tags=tags or [],
+            manifest = EnvironmentManifest.blank_manifest(
+                name, description=description, tags=tags or []
             )
         env_id = manifest.metadata.id or _fresh_id()
         self._write_manifest(env_id, manifest)
