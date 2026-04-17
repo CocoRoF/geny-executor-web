@@ -6,7 +6,6 @@ import {
   deleteSession as apiDeleteSession,
   fetchConfig,
 } from "../api/session";
-import { useUIStore } from "./uiStore";
 
 interface SessionStore {
   sessions: SessionInfo[];
@@ -38,10 +37,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   createSession: async (req) => {
-    const engine = useUIStore.getState().engine;
     set({ loading: true, error: null });
     try {
-      const { session_id } = await apiCreateSession({ ...req, engine });
+      const { session_id } = await apiCreateSession(req);
       set({ activeSessionId: session_id, loading: false });
       await get().loadSessions();
       return session_id;

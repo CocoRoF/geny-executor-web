@@ -66,19 +66,7 @@ async def execute_stream(websocket: WebSocket, session_id: str):
                     continue
 
                 async for event in session_service.run_stream(session_id, input_text):
-                    try:
-                        event_dict = asdict(event)
-                    except TypeError:
-                        # PyO3 objects (geny-harness) don't support asdict
-                        event_dict = {
-                            "type": getattr(
-                                event, "type", getattr(event, "event_type", "")
-                            ),
-                            "stage": getattr(event, "stage", ""),
-                            "iteration": getattr(event, "iteration", 0),
-                            "timestamp": getattr(event, "timestamp", ""),
-                            "data": getattr(event, "data", {}),
-                        }
+                    event_dict = asdict(event)
                     event_dict["data"] = _sanitize(event_dict.get("data", {}))
                     await websocket.send_json(event_dict)
 

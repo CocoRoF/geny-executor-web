@@ -349,9 +349,7 @@ function EditModeToggle() {
 export default function PipelineView() {
   const stages = usePipelineStore((s) => s.stages);
   const locale = useUIStore((s) => s.locale);
-  const engine = useUIStore((s) => s.engine);
   const isKo = locale === "ko";
-  const engineLabel = engine === "executor" ? "Python" : "Rust";
   const {
     containerRef,
     transform,
@@ -398,15 +396,6 @@ export default function PipelineView() {
             >
               {isKo ? "16단계 아키텍처" : "16-Stage Architecture"}
             </h2>
-            <span
-              className="text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-              style={{
-                background: engine === "executor" ? "rgba(59,130,246,0.15)" : "rgba(249,115,22,0.15)",
-                color: engine === "executor" ? "rgb(96,165,250)" : "rgb(251,146,60)",
-              }}
-            >
-              {engineLabel}
-            </span>
           </div>
         </div>
         <div className="flex items-center gap-3">

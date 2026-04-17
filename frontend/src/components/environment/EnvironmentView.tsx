@@ -35,8 +35,8 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
   const [showSave, setShowSave] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [shareEnvId, setShareEnvId] = useState<string | null>(null);
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareId, setCompareId] = useState<string | null>(null);
+  const [diffMode, setDiffMode] = useState(false);
+  const [diffBaseId, setDiffBaseId] = useState<string | null>(null);
 
   useEffect(() => {
     loadEnvironments();
@@ -49,14 +49,14 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
     }
   }, [selectedEnvId, loadDetail]);
 
-  const handleCompare = (envId: string) => {
-    if (!compareMode) {
-      setCompareMode(true);
-      setCompareId(envId);
-    } else if (compareId && compareId !== envId) {
-      computeDiff(compareId, envId);
-      setCompareMode(false);
-      setCompareId(null);
+  const handleDiff = (envId: string) => {
+    if (!diffMode) {
+      setDiffMode(true);
+      setDiffBaseId(envId);
+    } else if (diffBaseId && diffBaseId !== envId) {
+      computeDiff(diffBaseId, envId);
+      setDiffMode(false);
+      setDiffBaseId(null);
     }
   };
 
@@ -123,18 +123,18 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
           className="w-80 shrink-0 overflow-y-auto p-4 space-y-3"
           style={{ borderRight: "1px solid var(--border)" }}
         >
-          {/* Compare mode indicator */}
-          {compareMode && (
+          {/* Diff mode indicator */}
+          {diffMode && (
             <div
               className="text-xs p-2 rounded"
               style={{ background: "var(--accent)", color: "#000" }}
             >
-              Select another environment to compare
+              Select another environment to diff
               <button
                 className="ml-2 underline"
                 onClick={() => {
-                  setCompareMode(false);
-                  setCompareId(null);
+                  setDiffMode(false);
+                  setDiffBaseId(null);
                 }}
               >
                 Cancel
@@ -171,7 +171,7 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
                 onSelect={selectEnv}
                 onExport={exportEnv}
                 onDelete={remove}
-                onCompare={handleCompare}
+                onDiff={handleDiff}
               />
             ))
           )}
@@ -251,10 +251,10 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
         <EnvironmentDiffView
           diff={diffResult}
           envAName={
-            environments.find((e) => e.id === compareId)?.name ?? "A"
+            environments.find((e) => e.id === diffBaseId)?.name ?? "A"
           }
           envBName={
-            environments.find((e) => e.id !== compareId)?.name ?? "B"
+            environments.find((e) => e.id !== diffBaseId)?.name ?? "B"
           }
           onClose={clearDiff}
         />

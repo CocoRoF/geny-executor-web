@@ -7,7 +7,7 @@ interface EnvironmentCardProps {
   onSelect: (id: string) => void;
   onExport: (id: string) => void;
   onDelete: (id: string) => void;
-  onCompare: (id: string) => void;
+  onDiff: (id: string) => void;
   selected?: boolean;
 }
 
@@ -16,7 +16,7 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
   onSelect,
   onExport,
   onDelete,
-  onCompare,
+  onDiff,
   selected,
 }) => {
   const isPreset = env.tags.includes("preset");
@@ -91,10 +91,10 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
           style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
           onClick={(e) => {
             e.stopPropagation();
-            onCompare(env.id);
+            onDiff(env.id);
           }}
         >
-          Compare
+          Diff
         </button>
         <button
           className="text-[10px] px-2 py-1 rounded hover:brightness-125 transition-colors"

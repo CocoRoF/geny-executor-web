@@ -64,8 +64,7 @@ npm run dev   # http://localhost:5174
 세션은 파이프라인의 실행 인스턴스입니다.
 
 1. **세션 생성**: 프리셋 선택 (minimal/chat/agent/evaluator/geny_vtuber)
-2. **엔진 선택**: `executor` (geny-executor) 또는 `harness` (geny-harness)
-3. **모델 설정**: Claude 모델명 (기본: `claude-sonnet-4-20250514`)
+2. **모델 설정**: Claude 모델명 (기본: `claude-sonnet-4-20250514`)
 
 ---
 
@@ -159,5 +158,6 @@ Model Context Protocol 서버를 연결합니다:
 
 | geny-executor-web | geny-executor (필수) | 주요 기능 |
 |-------------------|---------------------|-----------|
+| v0.7.0 | >= 0.11.0 | 엔진 추상화 제거 · geny-executor 단일 구현 |
 | v0.6.0 | >= 0.10.0 | 전체 기능 (보안, 히스토리, A/B 테스트) |
 | v0.4.0 | >= 0.4.0 | 기본 에디터 + 도구 관리 |

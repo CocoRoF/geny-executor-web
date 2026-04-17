@@ -3,12 +3,11 @@ import type { PipelineDescribeResponse, PresetInfo } from "../types/pipeline";
 
 export async function fetchPipelineDescription(
   preset: string,
-  engine: string = "executor",
 ): Promise<PipelineDescribeResponse> {
-  return apiFetch(`/api/pipeline/describe?preset=${preset}&engine=${engine}`);
+  return apiFetch(`/api/pipeline/describe?preset=${encodeURIComponent(preset)}`);
 }
 
-export async function fetchPresets(engine: string = "executor"): Promise<PresetInfo[]> {
-  const data = await apiFetch<{ presets: PresetInfo[] }>(`/api/pipeline/presets?engine=${engine}`);
+export async function fetchPresets(): Promise<PresetInfo[]> {
+  const data = await apiFetch<{ presets: PresetInfo[] }>("/api/pipeline/presets");
   return data.presets;
 }

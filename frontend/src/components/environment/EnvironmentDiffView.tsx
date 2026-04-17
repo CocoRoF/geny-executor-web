@@ -52,7 +52,7 @@ const EnvironmentDiffView: React.FC<EnvironmentDiffViewProps> = ({
                 color: "var(--text-primary)",
               }}
             >
-              Environment Comparison
+              Environment Diff
             </h3>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
               {envAName} vs {envBName}

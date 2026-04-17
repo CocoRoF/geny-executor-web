@@ -2,7 +2,7 @@
 
 > **Base URL**: `http://localhost:58088` (nginx proxy)  
 > **Backend direct**: `http://localhost:8088`  
-> **Requires**: `geny-executor >= 0.10.0`
+> **Requires**: `geny-executor >= 0.11.0`
 
 ---
 
@@ -15,7 +15,7 @@
 
 ### GET /health
 ```json
-{ "status": "ok", "version": "0.6.0" }
+{ "status": "ok", "version": "0.7.0" }
 ```
 
 ### GET /api/config
@@ -38,7 +38,6 @@
 ```json
 {
   "preset": "chat",       // minimal | chat | agent | evaluator | geny_vtuber
-  "engine": "executor",   // executor | harness
   "api_key": "sk-...",
   "system_prompt": "",
   "model": "claude-sonnet-4-20250514",
