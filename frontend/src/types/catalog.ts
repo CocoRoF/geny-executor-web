@@ -122,6 +122,10 @@ export interface StageIntrospection {
   strategy_chains: Record<string, ChainIntrospection>;
   tool_binding_supported: boolean;
   model_override_supported: boolean;
+  /** True for stages the pipeline can't run without (Input / API / Parse /
+   * Yield today). UIs must force `active=true` on these. Added with
+   * geny-executor >=0.13.3 — treated as `false` for older backends. */
+  required?: boolean;
   extra?: Record<string, unknown>;
 }
 

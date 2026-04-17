@@ -12,6 +12,7 @@ export default function InputPanel() {
   const serverHasApiKey = useSessionStore((s) => s.serverHasApiKey);
   const createSession = useSessionStore((s) => s.createSession);
   const activePreset = usePipelineStore((s) => s.activePreset);
+  const activeEnvId = usePipelineStore((s) => s.activeEnvId);
   const isExecuting = useExecutionStore((s) => s.isExecuting);
   const runningCostUsd = useExecutionStore((s) => s.runningCostUsd);
   const { execute, stopExecution } = useWebSocket();
@@ -26,14 +27,27 @@ export default function InputPanel() {
         setShowApiKey(true);
         return;
       }
-      sessionId = await createSession({
-        preset: activePreset,
-        api_key: apiKey.trim() || undefined,
-      });
+      // env_id takes precedence when the user picked a saved environment —
+      // the backend ignores `preset` in that case and builds from the stored
+      // manifest. Otherwise fall back to the selected preset.
+      sessionId = await createSession(
+        activeEnvId
+          ? { env_id: activeEnvId, api_key: apiKey.trim() || undefined }
+          : { preset: activePreset, api_key: apiKey.trim() || undefined }
+      );
     }
     execute(sessionId, input.trim());
     setInput("");
-  }, [input, activeSessionId, serverHasApiKey, apiKey, activePreset, createSession, execute]);
+  }, [
+    input,
+    activeSessionId,
+    serverHasApiKey,
+    apiKey,
+    activePreset,
+    activeEnvId,
+    createSession,
+    execute,
+  ]);
 
   return (
     <div

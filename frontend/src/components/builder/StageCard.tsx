@@ -134,7 +134,14 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
     });
   };
 
+  // Required stages (Input / API / Parse / Yield) can't be deactivated —
+  // the runtime will accept the manifest but the pipeline wouldn't have
+  // anywhere to start, call, parse, or surface output. The check falls
+  // through to false for older backends that don't yet carry the flag.
+  const isRequired = introspection?.required === true;
+
   const handleActiveToggle = () => {
+    if (isRequired) return;
     updateStageDraft(stage.order, { active: !stage.active });
   };
 
@@ -229,15 +236,25 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
               {stage.name}
             </h3>
           </div>
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+          <label
+            className={`flex items-center gap-1.5 select-none ${
+              isRequired ? "cursor-not-allowed" : "cursor-pointer"
+            }`}
+            title={
+              isRequired
+                ? "This stage is required for every pipeline and cannot be deactivated."
+                : undefined
+            }
+          >
             <input
               type="checkbox"
               className="w-3.5 h-3.5 accent-[var(--accent)]"
               checked={stage.active}
               onChange={handleActiveToggle}
+              disabled={isRequired}
             />
             <span className="text-[11px] text-[var(--text-secondary)]">
-              Active
+              {isRequired ? "Active · Required" : "Active"}
             </span>
           </label>
         </div>

@@ -58,6 +58,28 @@ function cloneManifest(m: EnvironmentManifest): EnvironmentManifest {
   return JSON.parse(JSON.stringify(m)) as EnvironmentManifest;
 }
 
+/** Flip any required stage that was persisted as `active=false` back on.
+ *
+ * Older manifests (saved before v0.8.5) may carry deactivated Input / API /
+ * Parse / Yield entries. The UI now disallows that, so correct the draft on
+ * load. Returns `true` when any stage was adjusted so callers can surface the
+ * correction to the user by marking the draft dirty. */
+function coerceRequiredStagesActive(
+  manifest: EnvironmentManifest,
+  catalog: CatalogByOrder
+): { manifest: EnvironmentManifest; changed: boolean } {
+  let changed = false;
+  const stages = manifest.stages.map((s) => {
+    const insp = catalog[s.order];
+    if (insp?.required === true && !s.active) {
+      changed = true;
+      return { ...s, active: true };
+    }
+    return s;
+  });
+  return { manifest: changed ? { ...manifest, stages } : manifest, changed };
+}
+
 /** Immutably apply an `UpdateStageTemplatePayload` to one stage entry. */
 function applyStagePatch(
   entry: StageManifestEntry,
@@ -208,14 +230,28 @@ export const useEnvironmentBuilderStore = create<EnvironmentBuilderState>(
     loadTemplate: async (envId) => {
       set({ error: null });
       try {
+        // Make sure the catalog is available before we load — the required-
+        // stage coercion below needs `catalogByOrder[order].required` to know
+        // which stages to flip back on. Cheap no-op if already loaded.
+        await get().loadCatalog();
         const detail = await fetchEnvironmentV2(envId);
         const manifest = detail.manifest ?? null;
-        const firstOrder = manifest?.stages?.[0]?.order ?? null;
+        let draftManifest = manifest ? cloneManifest(manifest) : null;
+        let dirty = false;
+        if (draftManifest) {
+          const { manifest: corrected, changed } = coerceRequiredStagesActive(
+            draftManifest,
+            get().catalogByOrder
+          );
+          draftManifest = corrected;
+          dirty = changed;
+        }
+        const firstOrder = draftManifest?.stages?.[0]?.order ?? null;
         set({
           activeEnvId: envId,
           activeDetail: detail,
-          draft: manifest ? cloneManifest(manifest) : null,
-          dirty: false,
+          draft: draftManifest,
+          dirty,
           selectedStageOrder: firstOrder,
         });
       } catch (e) {
