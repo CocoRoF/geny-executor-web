@@ -2,7 +2,8 @@
  *
  * Owns:
  *   - artifact picker (top of the card)
- *   - 4-tab switcher: Config / Tools / Model / Chain
+ *   - tab switcher rendering only the tabs the current (stage, artifact)
+ *     actually supports (see `visibleTabsFor` below).
  *   - local dirty-buffer for each tab so typing feels instant; the parent
  *     patchStage call is debounced via a 600 ms trailing timer.
  */
@@ -27,12 +28,38 @@ interface StageCardProps {
   stage: StageManifestEntry;
 }
 
-const TABS: Array<{ key: TabKey; label: string }> = [
+const ALL_TABS: Array<{ key: TabKey; label: string }> = [
   { key: "config", label: "Config" },
   { key: "tools", label: "Tools" },
   { key: "model", label: "Model" },
   { key: "chain", label: "Chain" },
 ];
+
+/** Which tabs the current (stage, artifact) actually supports.
+ *
+ * Driven by the library's honest capability flags (geny-executor >=0.13.2):
+ *   - Config: always available — every stage exposes something configurable.
+ *   - Tools:  only if the runtime consumes `tool_binding` (s10_tool today).
+ *   - Model:  only if the runtime consumes `model_override` (s06_api today).
+ *   - Chain:  only if the stage exposes at least one strategy chain
+ *             (s04_guard, s14_emit today).
+ *
+ * Before the introspection arrives we render Config only — no misleading
+ * placeholders for tabs we aren't yet sure exist on this artifact.
+ */
+function visibleTabsFor(
+  insp: StageIntrospection | null
+): Array<{ key: TabKey; label: string }> {
+  if (!insp) return ALL_TABS.filter((t) => t.key === "config");
+  const hasChains = Object.keys(insp.strategy_chains ?? {}).length > 0;
+  return ALL_TABS.filter((t) => {
+    if (t.key === "config") return true;
+    if (t.key === "tools") return insp.tool_binding_supported;
+    if (t.key === "model") return insp.model_override_supported;
+    if (t.key === "chain") return hasChains;
+    return false;
+  });
+}
 
 const PATCH_DEBOUNCE_MS = 600;
 
@@ -78,6 +105,20 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
       cancelled = true;
     };
   }, [stage.order, stage.artifact, loadArtifactsForStage, loadArtifactIntrospection]);
+
+  const visibleTabs = React.useMemo(
+    () => visibleTabsFor(introspection),
+    [introspection]
+  );
+
+  // If the currently-selected tab disappears (e.g. artifact change hides
+  // Model / Tools / Chain), snap back to the first visible tab so the body
+  // isn't rendered against a hidden key.
+  React.useEffect(() => {
+    if (!visibleTabs.some((t) => t.key === tab)) {
+      setTab(visibleTabs[0]?.key ?? "config");
+    }
+  }, [visibleTabs, tab]);
 
   // Debounced patch: buffer outgoing changes, flush after a quiet window.
   const pendingRef = React.useRef<UpdateStageTemplatePayload>({});
@@ -269,9 +310,9 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
         )}
       </header>
 
-      {/* Tab switcher */}
+      {/* Tab switcher — only tabs the current (stage, artifact) actually supports */}
       <nav className="flex shrink-0" style={{ borderBottom: "1px solid var(--border)" }}>
-        {TABS.map((t) => {
+        {visibleTabs.map((t) => {
           const active = tab === t.key;
           return (
             <button
