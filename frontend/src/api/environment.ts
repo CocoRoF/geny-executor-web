@@ -8,6 +8,12 @@ import type {
   ExecutionRun,
   PresetInfo,
 } from "../types/editor";
+import type {
+  CreateEnvironmentPayload,
+  EnvironmentDetailV2,
+  EnvironmentManifest,
+  UpdateStageTemplatePayload,
+} from "../types/environment";
 
 // ── Environments ────────────────────────────────────────
 
@@ -27,11 +33,66 @@ export async function saveEnvironment(
   return apiFetch("/api/environments", {
     method: "POST",
     body: JSON.stringify({
+      mode: "from_session",
       session_id: sessionId,
       name,
       description: description ?? "",
       tags: tags ?? [],
     }),
+  });
+}
+
+// ── v2 template API ─────────────────────────────────────
+
+export async function createEnvironment(
+  payload: CreateEnvironmentPayload
+): Promise<{ id: string }> {
+  return apiFetch("/api/environments", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchEnvironmentV2(
+  envId: string
+): Promise<EnvironmentDetailV2> {
+  return apiFetch<EnvironmentDetailV2>(`/api/environments/${envId}`);
+}
+
+export async function replaceManifest(
+  envId: string,
+  manifest: EnvironmentManifest
+): Promise<EnvironmentDetailV2> {
+  return apiFetch<EnvironmentDetailV2>(
+    `/api/environments/${envId}/manifest`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ manifest }),
+    }
+  );
+}
+
+export async function patchStageTemplate(
+  envId: string,
+  order: number,
+  payload: UpdateStageTemplatePayload
+): Promise<EnvironmentDetailV2> {
+  return apiFetch<EnvironmentDetailV2>(
+    `/api/environments/${envId}/stages/${order}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function duplicateEnvironment(
+  envId: string,
+  newName: string
+): Promise<{ id: string }> {
+  return apiFetch(`/api/environments/${envId}/duplicate`, {
+    method: "POST",
+    body: JSON.stringify({ new_name: newName }),
   });
 }
 
