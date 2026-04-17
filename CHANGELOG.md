@@ -2,6 +2,59 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.5 — 2026-04-17
+
+### Added — Pipeline view: run saved environments
+
+The Pipeline mode header previously only offered preset names; to run a
+saved environment you had to navigate to the Environments tab, open the
+builder, and start a session from there. The Pipeline tab is now a true
+launcher for environments too:
+
+- **Unified picker.** The header dropdown groups choices under two
+  `<optgroup>`s — `Presets` (agent / chat / evaluator / minimal /
+  geny_vtuber) and `Environments` (user-saved, loaded via
+  `GET /api/environments`). Picking either updates the canvas to show
+  that pipeline's 16 stages with correct active/inactive shading.
+- **Session creation respects the selection.** When an environment is
+  active, `InputPanel` creates the session with `env_id` instead of
+  `preset`. The backend already built the pipeline from the stored
+  `EnvironmentManifest` (session router `if body.env_id:`) — this just
+  wires the UI to the existing path.
+- **Canvas renders env manifests.** `pipelineStore.loadPipelineFromEnv`
+  fetches the env detail, maps `StageManifestEntry[]` →
+  `StageDescription[]` (reading `active` as `is_active`, materialising
+  `strategies` from the manifest's `strategies` map), and sets
+  `activeEnvId`. Switching back to a preset clears it.
+
+### Added — Builder refuses to deactivate required stages
+
+Four stages — `s01_input`, `s06_api`, `s09_parse`, `s16_yield` — are
+structurally required by every pipeline (they mirror the `minimal`
+PipelineBuilder preset). Previously the Environment Builder's Active
+checkbox let users turn any of them off, producing manifests that
+looked valid but could never run a pipeline. Now:
+
+- **Library surface (`geny-executor` v0.13.3).** `StageIntrospection`
+  carries a boolean `required` field. The web catalog type treats it
+  as optional (`required?: boolean`) so older backends degrade to "all
+  optional" rather than erroring.
+- **`StageCard` respects the flag.** When the current stage's
+  introspection has `required=true`, the Active checkbox is `disabled`,
+  the label reads "Active · Required", and the row's cursor changes to
+  `not-allowed` with a tooltip explaining why. `handleActiveToggle` is
+  a no-op on required stages.
+- **Auto-correct on load.** `environmentBuilderStore.loadTemplate`
+  inspects every stage against the catalog and flips any required
+  stage that was persisted as `active=false` back to `true`. The
+  correction marks the draft `dirty=true` so the user sees a Save
+  affordance and the baseline is updated on the next save.
+
+### Upgraded
+- `geny-executor` pin: `>=0.13.2 → >=0.13.3`
+- `geny-executor-web` backend: `0.8.4 → 0.8.5`
+- `geny-executor-web` frontend: `0.8.4 → 0.8.5`
+
 ## v0.8.4 — 2026-04-17
 
 ### Changed — Environment Builder: local draft + single Save

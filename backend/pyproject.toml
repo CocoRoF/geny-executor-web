@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "geny-executor-web"
-version = "0.8.4"
+version = "0.8.5"
 description = "WebUI for geny-executor pipeline library"
 requires-python = ">=3.11"
 dependencies = [
@@ -12,7 +12,7 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     "websockets>=13.0",
     "python-dotenv>=1.0.0",
-    "geny-executor>=0.13.2",
+    "geny-executor>=0.13.3",
     "anthropic>=0.52.0",
 ]
 

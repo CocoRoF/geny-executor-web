@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { usePipelineStore } from "../../stores/pipelineStore";
 import { useUIStore } from "../../stores/uiStore";
 import type { ViewMode } from "../../stores/uiStore";
@@ -6,11 +7,20 @@ import { APP_VERSION } from "../../version";
 export default function Header() {
   const activePreset = usePipelineStore((s) => s.activePreset);
   const presets = usePipelineStore((s) => s.presets);
+  const activeEnvId = usePipelineStore((s) => s.activeEnvId);
+  const environments = usePipelineStore((s) => s.environments);
   const loadPipeline = usePipelineStore((s) => s.loadPipeline);
+  const loadEnvironments = usePipelineStore((s) => s.loadEnvironments);
+  const loadPipelineFromEnv = usePipelineStore((s) => s.loadPipelineFromEnv);
   const locale = useUIStore((s) => s.locale);
   const setLocale = useUIStore((s) => s.setLocale);
   const viewMode = useUIStore((s) => s.viewMode);
   const setViewMode = useUIStore((s) => s.setViewMode);
+
+  // Load saved environments once so the pipeline-mode picker can populate.
+  useEffect(() => {
+    if (environments.length === 0) void loadEnvironments();
+  }, [environments.length, loadEnvironments]);
 
   const VIEW_TABS: { value: ViewMode; label: string }[] = [
     { value: "pipeline", label: "Pipeline" },
@@ -40,23 +50,42 @@ export default function Header() {
           accent="var(--accent)"
         />
 
-        {/* Preset dropdown — only in pipeline mode */}
+        {/* Pipeline source picker — presets + saved environments */}
         {viewMode === "pipeline" && (
           <select
-            value={activePreset}
-            onChange={(e) => loadPipeline(e.target.value)}
+            value={activeEnvId ? `env:${activeEnvId}` : `preset:${activePreset}`}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v.startsWith("env:")) {
+                void loadPipelineFromEnv(v.slice(4));
+              } else if (v.startsWith("preset:")) {
+                void loadPipeline(v.slice(7));
+              }
+            }}
             className="text-xs px-3 py-1.5 rounded outline-none cursor-pointer"
             style={{
               background: "var(--bg-tertiary)",
               color: "var(--text-secondary)",
               border: "1px solid var(--border)",
+              maxWidth: 260,
             }}
           >
-            {presets.map((p) => (
-              <option key={p.name} value={p.name}>
-                {p.name}
-              </option>
-            ))}
+            <optgroup label="Presets">
+              {presets.map((p) => (
+                <option key={`preset:${p.name}`} value={`preset:${p.name}`}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+            {environments.length > 0 && (
+              <optgroup label="Environments">
+                {environments.map((env) => (
+                  <option key={`env:${env.id}`} value={`env:${env.id}`}>
+                    {env.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         )}
       </div>
