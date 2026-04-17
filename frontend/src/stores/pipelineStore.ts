@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { StageDescription, PresetInfo } from "../types/pipeline";
 import { fetchPipelineDescription, fetchPresets } from "../api/pipeline";
-import { useUIStore } from "./uiStore";
 
 interface PipelineStore {
   stages: StageDescription[];
@@ -21,10 +20,9 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
   error: null,
 
   loadPipeline: async (preset: string) => {
-    const engine = useUIStore.getState().engine;
     set({ loading: true, error: null, activePreset: preset });
     try {
-      const data = await fetchPipelineDescription(preset, engine);
+      const data = await fetchPipelineDescription(preset);
       set({ stages: data.stages, loading: false });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
@@ -32,9 +30,8 @@ export const usePipelineStore = create<PipelineStore>((set) => ({
   },
 
   loadPresets: async () => {
-    const engine = useUIStore.getState().engine;
     try {
-      const presets = await fetchPresets(engine);
+      const presets = await fetchPresets();
       set({ presets });
     } catch (e) {
       set({ error: (e as Error).message });

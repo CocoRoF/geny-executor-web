@@ -22,14 +22,13 @@ async def create_session(request: Request, body: CreateSessionRequest):
     pipeline = pipeline_service.create_pipeline(
         preset=body.preset,
         api_key=api_key,
-        engine=body.engine,
         system_prompt=body.system_prompt,
         model=body.model,
         max_iterations=body.max_iterations,
     )
-    session = session_service.create(pipeline, preset=body.preset, engine=body.engine)
+    session = session_service.create(pipeline, preset=body.preset)
 
-    return {"session_id": session.id, "preset": body.preset, "engine": body.engine}
+    return {"session_id": session.id, "preset": body.preset}
 
 
 @router.get("", response_model=SessionListResponse)
@@ -48,13 +47,11 @@ async def get_session(request: Request, session_id: str):
         raise HTTPException(status_code=404, detail="Session not found")
 
     preset = session_service.get_preset(session_id)
-    engine = session_service.get_engine(session_id)
-    desc = pipeline_service.describe_pipeline(preset, engine=engine)
+    desc = pipeline_service.describe_pipeline(preset)
 
     return {
         "session_id": session.id,
         "preset": preset,
-        "engine": engine,
         "freshness": session.freshness.value,
         "message_count": len(session.state.messages),
         "iteration": session.state.iteration,

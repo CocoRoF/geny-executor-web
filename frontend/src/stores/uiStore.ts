@@ -1,13 +1,11 @@
 import { create } from "zustand";
 
 export type Locale = "en" | "ko";
-export type Engine = "executor" | "harness";
-export type ViewMode = "single" | "compare" | "pipeline" | "tools" | "environment" | "history";
+export type ViewMode = "pipeline" | "tools" | "environment" | "history";
 
 interface UIStore {
   darkMode: boolean;
   locale: Locale;
-  engine: Engine;
   viewMode: ViewMode;
   selectedStageOrder: number | null;
   sidebarOpen: boolean;
@@ -15,7 +13,6 @@ interface UIStore {
   codeViewOpen: boolean;
   toggleDarkMode: () => void;
   setLocale: (l: Locale) => void;
-  setEngine: (e: Engine) => void;
   setViewMode: (m: ViewMode) => void;
   selectStage: (order: number | null) => void;
   setSidebarOpen: (v: boolean) => void;
@@ -35,16 +32,10 @@ const getInitialLocale = (): Locale => {
   return (localStorage.getItem("locale") as Locale) ?? "en";
 };
 
-const getInitialEngine = (): Engine => {
-  if (typeof window === "undefined") return "executor";
-  return (localStorage.getItem("engine") as Engine) ?? "executor";
-};
-
 export const useUIStore = create<UIStore>((set) => ({
   darkMode: getInitialDarkMode(),
   locale: getInitialLocale(),
-  engine: getInitialEngine(),
-  viewMode: "single" as ViewMode,
+  viewMode: "pipeline" as ViewMode,
   selectedStageOrder: null,
   sidebarOpen: true,
   apiKeyModalOpen: false,
@@ -61,11 +52,6 @@ export const useUIStore = create<UIStore>((set) => ({
   setLocale: (l) => {
     localStorage.setItem("locale", l);
     set({ locale: l });
-  },
-
-  setEngine: (e) => {
-    localStorage.setItem("engine", e);
-    set({ engine: e });
   },
 
   setViewMode: (m) => set({ viewMode: m }),

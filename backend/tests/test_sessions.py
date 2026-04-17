@@ -7,14 +7,12 @@ import pytest
 async def test_create_session(client):
     resp = await client.post("/api/sessions", json={
         "preset": "chat",
-        "engine": "executor",
         "api_key": "sk-test-key",
     })
     assert resp.status_code == 200
     data = resp.json()
     assert "session_id" in data
     assert data["preset"] == "chat"
-    assert data["engine"] == "executor"
 
 
 @pytest.mark.asyncio
@@ -95,13 +93,3 @@ async def test_create_session_invalid_preset(client):
         "api_key": "sk-test-key",
     })
     assert resp.status_code == 422  # validation error
-
-
-@pytest.mark.asyncio
-async def test_create_session_invalid_engine(client):
-    resp = await client.post("/api/sessions", json={
-        "preset": "chat",
-        "engine": "invalid_engine",
-        "api_key": "sk-test-key",
-    })
-    assert resp.status_code == 422

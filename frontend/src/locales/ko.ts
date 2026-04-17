@@ -38,7 +38,7 @@ export const UI_KO = {
   testTool: "도구 테스트",
   export: "내보내기",
   import: "가져오기",
-  compare: "비교",
+  diff: "차이",
   apply: "적용",
   cancel: "취소",
   delete: "삭제",
@@ -58,7 +58,7 @@ export const UI_KO = {
   sensitiveRemoved: "민감 정보 자동 제거됨",
   dropToImport: ".geny-env.json 파일을 놓으세요",
   orBrowse: "또는 파일 찾아보기",
-  envComparison: "환경 비교",
+  envComparison: "환경 Diff",
   noDifferences: "차이 없음",
   identical: "동일함",
   /* Phase 6: History & Analytics */

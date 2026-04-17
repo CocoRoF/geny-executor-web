@@ -9,7 +9,6 @@ import StageDetailPanel from "./components/pipeline/StageDetailPanel";
 import CodeViewModal from "./components/pipeline/CodeViewModal";
 import EventLog from "./components/execution/EventLog";
 import InputPanel from "./components/execution/InputPanel";
-import CompareView from "./components/compare/CompareView";
 import StageEditorPanel from "./components/editor/StageEditorPanel";
 import ToolManagerView from "./components/tools/ToolManagerView";
 import EnvironmentView from "./components/environment/EnvironmentView";
@@ -52,10 +51,7 @@ export default function App() {
     <div className="h-screen flex flex-col" style={{ background: "var(--bg-primary)" }}>
       <Header />
 
-      {viewMode === "compare" ? (
-        /* Compare mode: full-width compare view with its own input */
-        <CompareView />
-      ) : viewMode === "tools" ? (
+      {viewMode === "tools" ? (
         <div className="flex-1 overflow-hidden">
           <ToolManagerView sessionId={sessionId} />
         </div>
@@ -68,7 +64,7 @@ export default function App() {
           <HistoryView sessionId={activeSessionId} />
         </div>
       ) : (
-        /* Single engine mode: pipeline + event log + input */
+        /* Pipeline mode: pipeline + event log + input */
         <>
           <div className="flex-1 flex overflow-hidden min-h-0">
             {/* Left: Pipeline visualization */}

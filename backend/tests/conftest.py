@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 _SESSIONS: dict[str, SimpleNamespace] = {}
 
 
-def _make_fake_session(session_id: str, preset: str = "chat", engine: str = "executor"):
+def _make_fake_session(session_id: str, preset: str = "chat"):
     """Return a minimal fake session object."""
     state = SimpleNamespace(
         messages=[],
@@ -46,7 +46,7 @@ class FakePipelineService:
     def create_pipeline(self, **kwargs):
         return SimpleNamespace(id="pipe-1")
 
-    def describe_pipeline(self, preset, engine="executor"):
+    def describe_pipeline(self, preset):
         return SimpleNamespace(
             name="test-pipeline",
             stages=[
@@ -64,15 +64,13 @@ class FakeSessionService:
     def __init__(self):
         self._sessions: dict[str, SimpleNamespace] = {}
         self._presets: dict[str, str] = {}
-        self._engines: dict[str, str] = {}
 
-    def create(self, pipeline, preset="chat", engine="executor"):
+    def create(self, pipeline, preset="chat"):
         FakeSessionService._counter += 1
         sid = f"sess-{FakeSessionService._counter}"
-        s = _make_fake_session(sid, preset, engine)
+        s = _make_fake_session(sid, preset)
         self._sessions[sid] = s
         self._presets[sid] = preset
-        self._engines[sid] = engine
         return s
 
     def get(self, session_id: str):
@@ -81,14 +79,10 @@ class FakeSessionService:
     def get_preset(self, session_id: str):
         return self._presets.get(session_id, "unknown")
 
-    def get_engine(self, session_id: str):
-        return self._engines.get(session_id, "executor")
-
     def delete(self, session_id: str):
         if session_id in self._sessions:
             del self._sessions[session_id]
             self._presets.pop(session_id, None)
-            self._engines.pop(session_id, None)
             return True
         return False
 
@@ -98,7 +92,6 @@ class FakeSessionService:
             result.append({
                 "session_id": sid,
                 "preset": self._presets.get(sid, "unknown"),
-                "engine": self._engines.get(sid, "executor"),
                 "freshness": s.freshness.value,
                 "message_count": len(s.state.messages),
                 "iteration": s.state.iteration,

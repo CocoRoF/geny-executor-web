@@ -1,6 +1,6 @@
 import { usePipelineStore } from "../../stores/pipelineStore";
 import { useUIStore } from "../../stores/uiStore";
-import type { Engine, ViewMode } from "../../stores/uiStore";
+import type { ViewMode } from "../../stores/uiStore";
 
 export default function Header() {
   const activePreset = usePipelineStore((s) => s.activePreset);
@@ -8,35 +8,13 @@ export default function Header() {
   const loadPipeline = usePipelineStore((s) => s.loadPipeline);
   const locale = useUIStore((s) => s.locale);
   const setLocale = useUIStore((s) => s.setLocale);
-  const engine = useUIStore((s) => s.engine);
-  const setEngine = useUIStore((s) => s.setEngine);
   const viewMode = useUIStore((s) => s.viewMode);
   const setViewMode = useUIStore((s) => s.setViewMode);
-  const loadPresets = usePipelineStore((s) => s.loadPresets);
-
-  const brandName = viewMode === "compare" ? "compare" : engine === "executor" ? "executor" : "harness";
-
-  const handleEngineTab = (tab: string) => {
-    if (tab === "compare") {
-      setViewMode("compare");
-    } else {
-      setViewMode("single");
-      setEngine(tab as Engine);
-      loadPresets();
-      loadPipeline(activePreset);
-    }
-  };
-
-  const selectedEngineTab = viewMode === "compare" ? "compare" : engine;
-
-  const handleViewTab = (v: ViewMode) => {
-    setViewMode(v);
-  };
 
   const VIEW_TABS: { value: ViewMode; label: string }[] = [
-    { value: "single", label: "Pipeline" },
+    { value: "pipeline", label: "Pipeline" },
     { value: "tools", label: "Tools" },
-    { value: "environment", label: "Envs" },
+    { value: "environment", label: "Environments" },
     { value: "history", label: "History" },
   ];
 
@@ -49,20 +27,20 @@ export default function Header() {
         {/* Brand */}
         <h1 className="text-sm font-semibold tracking-wide">
           <span style={{ color: "var(--accent)" }}>geny</span>
-          <span style={{ color: "var(--text-muted)" }}>-{brandName}-</span>
+          <span style={{ color: "var(--text-muted)" }}>-executor-</span>
           <span style={{ color: "var(--text-primary)" }}>web</span>
         </h1>
 
         {/* View mode tabs */}
         <ToggleGroup
           options={VIEW_TABS}
-          selected={["tools", "environment", "history"].includes(viewMode) ? viewMode : "single"}
-          onSelect={(v) => handleViewTab(v as ViewMode)}
+          selected={viewMode}
+          onSelect={(v) => setViewMode(v as ViewMode)}
           accent="var(--accent)"
         />
 
-        {/* Preset dropdown — only in pipeline/single mode */}
-        {(viewMode === "single" || viewMode === "pipeline" || viewMode === "compare") && (
+        {/* Preset dropdown — only in pipeline mode */}
+        {viewMode === "pipeline" && (
           <select
             value={activePreset}
             onChange={(e) => loadPipeline(e.target.value)}
@@ -83,18 +61,6 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Engine toggle: Executor / Harness / Compare */}
-        <ToggleGroup
-          options={[
-            { value: "executor", label: "Executor" },
-            { value: "harness", label: "Harness" },
-            { value: "compare", label: "Compare" },
-          ]}
-          selected={selectedEngineTab}
-          onSelect={handleEngineTab}
-          accent="var(--accent)"
-        />
-
         {/* EN / KO toggle */}
         <ToggleGroup
           options={[
@@ -110,7 +76,7 @@ export default function Header() {
           className="text-[10px] uppercase tracking-widest"
           style={{ color: "var(--text-muted)" }}
         >
-          V0.6.0
+          V0.7.0
         </div>
       </div>
     </header>
