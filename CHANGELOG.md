@@ -2,6 +2,21 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.7.1 — 2026-04-17
+
+### Changed
+- Bumped minimum `geny-executor` to `>=0.12.0` (E1 Stage Uniformity release).
+  No source changes required — all imports used by the backend (`PipelinePresets`,
+  `PipelineMutator`, `SessionManager`, `PipelineSnapshot`, and the tools subsystem)
+  are unchanged in 0.12.0. The pin bump makes the E1 contract (`SlotChain`,
+  `StageToolBinding`, per-stage `model_override`, `PresetRegistry`) available for
+  the upcoming E2 web stage editor.
+
+### Upgraded
+- `geny-executor-web` backend: `0.7.0 → 0.7.1`
+
+---
+
 ## v0.7.0 — 2026-04-17
 
 ### Removed
