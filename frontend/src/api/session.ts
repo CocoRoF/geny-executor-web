@@ -1,5 +1,9 @@
 import { apiFetch } from "./client";
-import type { CreateSessionRequest, SessionInfo } from "../types/session";
+import type {
+  CreateSessionRequest,
+  CreateSessionResponse,
+  SessionInfo,
+} from "../types/session";
 
 export async function fetchConfig(): Promise<{ api_key_configured: boolean }> {
   return apiFetch("/api/config");
@@ -7,11 +11,18 @@ export async function fetchConfig(): Promise<{ api_key_configured: boolean }> {
 
 export async function createSession(
   req: CreateSessionRequest
-): Promise<{ session_id: string; preset: string }> {
+): Promise<CreateSessionResponse> {
   return apiFetch("/api/sessions", {
     method: "POST",
     body: JSON.stringify(req),
   });
+}
+
+export async function createSessionFromEnv(
+  envId: string,
+  apiKey: string
+): Promise<CreateSessionResponse> {
+  return createSession({ env_id: envId, api_key: apiKey });
 }
 
 export async function fetchSessions(): Promise<SessionInfo[]> {
