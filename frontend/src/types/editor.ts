@@ -118,14 +118,6 @@ export interface EnvironmentDiffResult {
   summary: { added: number; removed: number; changed: number };
 }
 
-export interface PresetInfo {
-  name: string;
-  description: string;
-  preset_type: "built_in" | "user";
-  tags: string[];
-  environment_id?: string;
-}
-
 // ── History ─────────────────────────────────────────────
 
 export interface ExecutionRun {

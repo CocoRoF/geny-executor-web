@@ -131,7 +131,47 @@ class FakeEnvironmentNotFound(_RealEnvNotFound):
     pass
 
 
+_STAGE_SHORT_NAMES = [
+    "input",
+    "context",
+    "memory",
+    "guard",
+    "cache",
+    "api",
+    "execute",
+    "tool_call",
+    "parse",
+    "think",
+    "evaluate",
+    "agent",
+    "verify",
+    "emit",
+    "store",
+    "yield",
+]
+
+
 def _blank_manifest(name: str, description: str, tags: list[str], env_id: str) -> dict:
+    """Mirror ``EnvironmentManifest.blank_manifest`` shape: 16 inactive stages.
+
+    Kept in sync with the library contract so router tests exercise the same
+    manifest shape the real service produces.
+    """
+    stages = [
+        {
+            "order": i + 1,
+            "name": _STAGE_SHORT_NAMES[i],
+            "active": False,
+            "artifact": "default",
+            "strategies": {},
+            "strategy_configs": {},
+            "config": {},
+            "tool_binding": None,
+            "model_override": None,
+            "chain_order": {},
+        }
+        for i in range(16)
+    ]
     return {
         "version": "2.0",
         "metadata": {
@@ -141,10 +181,11 @@ def _blank_manifest(name: str, description: str, tags: list[str], env_id: str) -
             "tags": list(tags),
             "created_at": "2025-01-01T00:00:00Z",
             "updated_at": "2025-01-01T00:00:00Z",
+            "base_preset": "",
         },
         "model": {},
         "pipeline": {},
-        "stages": [],
+        "stages": stages,
         "tools": {},
     }
 

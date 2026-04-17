@@ -32,7 +32,14 @@ async def test_create_blank_explicit_mode(client):
     data = resp.json()
     assert data["name"] == "blank-env"
     assert data["manifest"] is not None
-    assert data["manifest"]["stages"] == []
+    # Blank manifests carry all 16 stages inactive — the builder UI renders
+    # every row and the user opts stages in by toggling active.
+    stages = data["manifest"]["stages"]
+    assert len(stages) == 16
+    assert [s["order"] for s in stages] == list(range(1, 17))
+    assert all(s["active"] is False for s in stages)
+    # A blank env has no origin preset.
+    assert data["manifest"]["metadata"].get("base_preset", "") == ""
 
 
 @pytest.mark.asyncio
