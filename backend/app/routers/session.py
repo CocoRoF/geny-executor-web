@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.config import settings
 from app.schemas.session import CreateSessionRequest, SessionListResponse
+from app.services.exceptions import EnvironmentNotFoundError
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -19,6 +20,28 @@ async def create_session(request: Request, body: CreateSessionRequest):
     if not api_key:
         raise HTTPException(status_code=400, detail="API key required")
 
+    # env_id path — build the pipeline from the stored manifest and register
+    # the session under a synthetic "env:<id>" preset label so list_sessions
+    # can tell the difference from preset-backed sessions.
+    if body.env_id:
+        env_service = request.app.state.environment_service
+        try:
+            pipeline = env_service.instantiate_pipeline(body.env_id, api_key=api_key)
+        except EnvironmentNotFoundError:
+            raise HTTPException(status_code=404, detail="Environment not found")
+        except Exception as exc:  # noqa: BLE001 — surface bad manifest as 400
+            raise HTTPException(
+                status_code=400, detail=f"Failed to build pipeline: {exc}"
+            )
+        preset_label = f"env:{body.env_id}"
+        session = session_service.create(pipeline, preset=preset_label)
+        return {
+            "session_id": session.id,
+            "preset": preset_label,
+            "env_id": body.env_id,
+        }
+
+    # Preset path — the legacy flow.
     pipeline = pipeline_service.create_pipeline(
         preset=body.preset,
         api_key=api_key,
