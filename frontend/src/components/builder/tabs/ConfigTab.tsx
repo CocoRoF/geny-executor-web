@@ -1,18 +1,20 @@
 /* ConfigTab — edits a stage's config + per-strategy configs.
  *
  * Splits the schema-driven form into two sections:
- *   1. Stage-level config (ConfigSchema from StageIntrospection.config_schema)
- *   2. One collapsible block per strategy slot, each with its own schema
+ *   1. Stage-level config (derived from StageIntrospection.config_schema)
+ *   2. One collapsible block per strategy slot, using the current impl's
+ *      schema from SlotIntrospection.impl_schemas[currentImpl]
  *
- * Everything writes through UpdateStageTemplatePayload so a single PATCH
- * lands with all the changed keys. Patching is debounced in the parent
- * (StageCard) so typing feels snappy.
+ * The library emits JSON Schema; we flatten it via `flattenJsonSchema` before
+ * handing it to the ConfigSchemaForm widget. Everything writes through
+ * UpdateStageTemplatePayload, debounced in StageCard.
  */
 import React from "react";
 
 import ConfigSchemaForm from "../ConfigSchemaForm";
 import type { StageIntrospection } from "../../../types/catalog";
 import type { StageManifestEntry } from "../../../types/environment";
+import { flattenJsonSchema } from "../../../utils/jsonSchema";
 
 interface ConfigTabProps {
   stage: StageManifestEntry;
@@ -32,8 +34,11 @@ const ConfigTab: React.FC<ConfigTabProps> = ({
   onChangeStrategyImpl,
   onChangeStrategyConfig,
 }) => {
-  const stageSchema = introspection.config_schema;
-  const hasStageSchema = Object.keys(stageSchema ?? {}).length > 0;
+  const stageSchema = React.useMemo(
+    () => flattenJsonSchema(introspection.config_schema),
+    [introspection.config_schema]
+  );
+  const hasStageSchema = Object.keys(stageSchema).length > 0;
 
   return (
     <div className="space-y-6 p-4">
@@ -59,8 +64,10 @@ const ConfigTab: React.FC<ConfigTabProps> = ({
       {Object.entries(introspection.strategy_slots).map(([slotName, slot]) => {
         const currentImpl =
           stage.strategies[slotName] ?? slot.current_impl ?? "";
-        const slotConfig =
-          stage.strategy_configs[slotName] ?? slot.config ?? {};
+        const implSchema = flattenJsonSchema(
+          slot.impl_schemas?.[currentImpl] ?? null
+        );
+        const slotConfig = stage.strategy_configs[slotName] ?? {};
         return (
           <section
             key={slotName}
@@ -69,6 +76,9 @@ const ConfigTab: React.FC<ConfigTabProps> = ({
             <header className="flex items-center justify-between mb-2">
               <h5 className="text-xs font-semibold text-[var(--text-primary)]">
                 {slotName}
+                {slot.required && (
+                  <span className="text-[var(--accent)] ml-1">*</span>
+                )}
               </h5>
               <select
                 className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
@@ -87,9 +97,9 @@ const ConfigTab: React.FC<ConfigTabProps> = ({
                 {slot.impl_descriptions[currentImpl]}
               </p>
             )}
-            {Object.keys(slot.config_schema ?? {}).length > 0 ? (
+            {Object.keys(implSchema).length > 0 ? (
               <ConfigSchemaForm
-                schema={slot.config_schema}
+                schema={implSchema}
                 values={slotConfig}
                 onChange={(next) => onChangeStrategyConfig(slotName, next)}
               />

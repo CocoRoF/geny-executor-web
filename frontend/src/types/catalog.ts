@@ -1,11 +1,18 @@
 /* Types mirroring the session-less /api/catalog responses.
  *
- * These describe the stage × artifact universe that the Environment Builder
- * renders — pre-any-session metadata pulled straight from the installed
- * geny-executor library.
+ * The backend returns the geny_executor library's introspection dicts as-is,
+ * so these shapes are the library's canonical output. Field names MUST match
+ * the library's `StageIntrospection.to_dict()` output; when the two drift the
+ * Builder silently renders blank tabs.
+ *
+ * Two schema shapes live here:
+ *   - JsonSchemaObject  — the library's native output (JSON Schema)
+ *   - ConfigSchema       — the flat Record<field, FieldInfo> that
+ *                          ConfigSchemaForm consumes. Convert with
+ *                          `flattenJsonSchema` before rendering.
  */
 
-// ── Schema primitives shared with ConfigSchemaForm ──────
+// ── Flat ConfigSchema (consumed by ConfigSchemaForm) ────
 
 export type ConfigFieldType =
   | "string"
@@ -36,48 +43,86 @@ export interface ConfigFieldInfo {
 
 export type ConfigSchema = Record<string, ConfigFieldInfo>;
 
-// ── Catalog shapes ─────────────────────────────────────
+// ── JSON Schema shape emitted by the library ────────────
+
+/** One property entry inside a JSON Schema `properties` map. */
+export interface JsonSchemaField {
+  type?: string;
+  title?: string;
+  description?: string;
+  default?: unknown;
+  enum?: unknown[];
+  enumLabels?: Record<string, string>;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  items?: JsonSchemaField;
+  properties?: Record<string, JsonSchemaField>;
+  required?: string[];
+  "x-ui-widget"?: string;
+  [key: string]: unknown;
+}
+
+/** Top-level JSON Schema object — library's `config_schema` output. */
+export interface JsonSchemaObject {
+  type: "object";
+  title?: string;
+  properties: Record<string, JsonSchemaField>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
+// ── Artifact / introspection shapes (library-native) ────
 
 export interface ArtifactInfo {
+  stage: string;
   name: string;
   description: string;
+  version: string;
+  stability: string;
+  requires: string[];
+  is_default: boolean;
   provides_stage: boolean;
-  strategies: string[];
-  default_strategies: Record<string, string>;
-  stage: string;
-  order: number;
+  extra: Record<string, unknown>;
 }
 
 export interface SlotIntrospection {
   slot_name: string;
+  description: string;
+  required: boolean;
   current_impl: string;
   available_impls: string[];
-  config: Record<string, unknown>;
-  config_schema: ConfigSchema;
+  /** Map of impl_name → that impl's JSON Schema (or null). */
+  impl_schemas: Record<string, JsonSchemaObject | null>;
   impl_descriptions: Record<string, string>;
 }
 
 export interface ChainIntrospection {
   chain_name: string;
-  items: string[];
-  available_items: string[];
-  config_schema: ConfigSchema;
+  description: string;
+  current_impls: string[];
+  available_impls: string[];
+  impl_schemas: Record<string, JsonSchemaObject | null>;
+  impl_descriptions: Record<string, string>;
 }
 
 export interface StageIntrospection {
   stage: string;
+  artifact: string;
   order: number;
   name: string;
   category: string;
-  artifact: string;
   artifact_info: ArtifactInfo;
-  is_active: boolean;
-  config_schema: ConfigSchema;
-  current_config: Record<string, unknown>;
+  config_schema: JsonSchemaObject | null;
+  /** Default stage-level config for this artifact. */
+  config: Record<string, unknown>;
   strategy_slots: Record<string, SlotIntrospection>;
-  chains: Record<string, ChainIntrospection>;
-  supports_tool_binding: boolean;
-  supports_model_override: boolean;
+  strategy_chains: Record<string, ChainIntrospection>;
+  tool_binding_supported: boolean;
+  model_override_supported: boolean;
+  extra?: Record<string, unknown>;
 }
 
 export interface StageSummary {
