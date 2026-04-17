@@ -2,6 +2,80 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.0 — 2026-04-17
+
+### Added
+- **Environment Builder** — a session-less template editor that turns an
+  Environment into a first-class, editable artifact rather than a
+  runtime-only snapshot.
+  - Left pane: 16-row stage list with category / artifact / off state.
+  - Right pane: `StageCard` with 4 tabs (Config / Tools / Model / Chain)
+    and an artifact picker; edits are buffered and PATCH'ed with a
+    600 ms trailing debounce.
+  - Schema-driven config forms (`ConfigSchemaForm`) render any
+    `ConfigSchema` — string / integer / number / boolean / enum /
+    object / array / any — with a JSON textarea fallback for
+    schemaless object / any fields.
+  - "New environment" modal: blank manifest or clone-from-preset.
+  - "Start session" action instantiates a live session from the
+    current template (`POST /api/sessions { env_id }`) and switches
+    the UI to the pipeline view.
+  - "Edit in Builder" entrypoint added to each saved environment's
+    detail pane; "Open Builder" button added to the Environment tab
+    header.
+
+### Backend (FastAPI)
+- New `/api/catalog` router — session-less catalog built from the
+  installed `geny-executor` library:
+  - `GET /api/catalog/stages` — 16-row summary.
+  - `GET /api/catalog/full` — every stage's full introspection.
+  - `GET /api/catalog/stages/{order}` — one stage, default artifact.
+  - `GET /api/catalog/stages/{order}/artifacts` — artifact list for a
+    stage.
+  - `GET /api/catalog/stages/{order}/artifacts/{name}` — one
+    (stage, artifact) introspection.
+- Environment CRUD extended for template authoring:
+  - `POST /api/environments` accepts `mode: "blank" | "from_session"
+    | "from_preset"` (mode is inferred from the other fields when
+    omitted, keeping the `{session_id, name}` shape compatible).
+  - `PUT  /api/environments/{id}/manifest` — wholesale manifest
+    replace.
+  - `PATCH /api/environments/{id}/stages/{order}` — partial stage
+    update (artifact / strategies / configs / tool_binding /
+    model_override / chain_order / active).
+  - `POST /api/environments/{id}/duplicate` — deep-copy under a new
+    name.
+  - `GET /api/environments/{id}` now returns a `manifest` field
+    alongside the legacy `snapshot`.
+- `POST /api/sessions` accepts `env_id` to instantiate a pipeline
+  directly from a saved environment (preset is reported as
+  `env:<id>` on the session row).
+- Service exceptions live in `app/services/exceptions.py` so routers
+  can raise them without dragging the whole `geny_executor` import
+  chain into the router module.
+
+### Changed
+- Minimum `geny-executor` pin bumped to `>=0.13.0` (artifact catalog,
+  `introspect_stage`, `Pipeline.from_manifest`, manifest v2).
+- Session-create response now always includes the effective
+  `preset` label; templated sessions carry `env_id`.
+
+### Upgraded
+- `geny-executor-web` backend: `0.7.1 → 0.8.0`
+- `geny-executor-web` frontend: `0.7.0 → 0.8.0`
+
+### Compatibility notes
+- Existing saved environments remain readable; manifest-less ones fall
+  back to the legacy snapshot preview, and the first save through the
+  builder migrates them to v2 on disk.
+- Old `POST /api/environments { session_id, name }` payloads continue
+  to work — the backend infers `mode: "from_session"` when `mode` is
+  omitted.
+- New `/api/catalog` routes require backend to be running on Python
+  3.11+ (the existing `geny-executor` constraint).
+
+---
+
 ## v0.7.1 — 2026-04-17
 
 ### Changed
