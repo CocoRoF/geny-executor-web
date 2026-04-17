@@ -20,7 +20,7 @@ export async function createSession(
 
 export async function createSessionFromEnv(
   envId: string,
-  apiKey: string
+  apiKey?: string
 ): Promise<CreateSessionResponse> {
   return createSession({ env_id: envId, api_key: apiKey });
 }

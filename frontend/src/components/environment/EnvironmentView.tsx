@@ -1,6 +1,12 @@
-/* EnvironmentView — manage saved pipeline environments (Phase 5) */
+/* EnvironmentView — manage saved pipeline environments (Phase 5).
+ *
+ * Two sub-modes:
+ *   - browse (default) → saved-environments list + snapshot actions
+ *   - build            → EnvironmentBuilder full-pane template editor
+ */
 import React, { useEffect, useState } from "react";
 import { useEnvironmentStore } from "../../stores/environmentStore";
+import EnvironmentBuilder from "../builder/EnvironmentBuilder";
 import EnvironmentCard from "./EnvironmentCard";
 import EnvironmentSaveModal from "./EnvironmentSaveModal";
 import EnvironmentImport from "./EnvironmentImport";
@@ -8,11 +14,21 @@ import EnvironmentDiffView from "./EnvironmentDiffView";
 import EnvironmentShareModal from "./EnvironmentShareModal";
 import EnvironmentPreview from "./EnvironmentPreview";
 
+type SubMode = "browse" | "build";
+
 interface EnvironmentViewProps {
   sessionId: string;
 }
 
 const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
+  const [subMode, setSubMode] = useState<SubMode>("browse");
+  const [builderEnvId, setBuilderEnvId] = useState<string | null>(null);
+
+  const openInBuilder = (envId: string | null) => {
+    setBuilderEnvId(envId);
+    setSubMode("build");
+  };
+
   const {
     environments,
     loading,
@@ -71,6 +87,19 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
   const shareEnvName =
     shareEnvId ? environments.find((e) => e.id === shareEnvId)?.name ?? "" : "";
 
+  if (subMode === "build") {
+    return (
+      <EnvironmentBuilder
+        initialEnvId={builderEnvId}
+        onClose={() => {
+          setSubMode("browse");
+          setBuilderEnvId(null);
+          void loadEnvironments();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -96,6 +125,17 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
           </h2>
         </div>
         <div className="flex gap-2">
+          <button
+            className="text-[10px] px-3 py-1 rounded-md transition-colors hover:brightness-125"
+            style={{
+              background: "var(--bg-tertiary)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+            onClick={() => openInBuilder(null)}
+          >
+            Open Builder
+          </button>
           <button
             className="text-[10px] px-3 py-1 rounded-md transition-colors hover:brightness-125"
             style={{
@@ -198,17 +238,29 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
                     </p>
                   )}
                 </div>
-                <button
-                  className="text-[10px] px-3 py-1 rounded"
-                  style={{
-                    background: "var(--bg-tertiary)",
-                    color: "var(--text-secondary)",
-                    border: "1px solid var(--border)",
-                  }}
-                  onClick={() => setShareEnvId(selectedDetail.id)}
-                >
-                  Share
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className="text-[10px] px-3 py-1 rounded"
+                    style={{
+                      background: "var(--accent)",
+                      color: "#000",
+                    }}
+                    onClick={() => openInBuilder(selectedDetail.id)}
+                  >
+                    Edit in Builder
+                  </button>
+                  <button
+                    className="text-[10px] px-3 py-1 rounded"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      color: "var(--text-secondary)",
+                      border: "1px solid var(--border)",
+                    }}
+                    onClick={() => setShareEnvId(selectedDetail.id)}
+                  >
+                    Share
+                  </button>
+                </div>
               </div>
 
               {selectedDetail.tags.length > 0 && (
