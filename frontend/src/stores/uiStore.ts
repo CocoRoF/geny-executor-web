@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type Locale = "en" | "ko";
 export type Engine = "executor" | "harness";
-export type ViewMode = "single" | "compare";
+export type ViewMode = "single" | "compare" | "pipeline" | "tools" | "environment" | "history";
 
 interface UIStore {
   darkMode: boolean;

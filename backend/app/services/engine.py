@@ -1,4 +1,5 @@
 """Engine abstraction — dynamically imports from geny-executor or geny-harness."""
+
 from __future__ import annotations
 from typing import Literal
 

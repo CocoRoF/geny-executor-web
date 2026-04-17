@@ -88,7 +88,9 @@ class PipelineService:
             case _:
                 raise ValueError(f"Unknown preset: {preset}")
 
-    def describe_pipeline(self, preset: str, *, engine: EngineType = "executor") -> dict:
+    def describe_pipeline(
+        self, preset: str, *, engine: EngineType = "executor"
+    ) -> dict:
         pipeline = self.create_pipeline(preset, api_key="describe-only", engine=engine)
         stages = [_stage_to_dict(s) for s in pipeline.describe()]
         return {"name": preset, "stages": stages}
@@ -96,9 +98,15 @@ class PipelineService:
     def get_presets(self, *, engine: EngineType = "executor") -> list[dict]:
         result = []
         for name, description in PRESET_DESCRIPTIONS.items():
-            pipeline = self.create_pipeline(name, api_key="describe-only", engine=engine)
+            pipeline = self.create_pipeline(
+                name, api_key="describe-only", engine=engine
+            )
             active_stages = [s.order for s in pipeline.describe() if s.is_active]
             result.append(
-                {"name": name, "description": description, "active_stages": active_stages}
+                {
+                    "name": name,
+                    "description": description,
+                    "active_stages": active_stages,
+                }
             )
         return result

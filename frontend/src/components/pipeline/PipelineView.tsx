@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useExecutionStore } from "../../stores/executionStore";
 import { useUIStore } from "../../stores/uiStore";
 import { usePipelineStore } from "../../stores/pipelineStore";
+import { useEditorStore } from "../../stores/editorStore";
 import { useZoomPan } from "../../hooks/useZoomPan";
 import { getLocalizedStageMeta } from "../../utils/stageMetadata";
 import type { StageDescription } from "../../types/pipeline";
@@ -57,6 +58,7 @@ function StageNode({ stage }: { stage: StageDescription }) {
   const errorStages = useExecutionStore((s) => s.errorStages);
   const selectedOrder = useUIStore((s) => s.selectedStageOrder);
   const selectStage = useUIStore((s) => s.selectStage);
+  const editMode = useEditorStore((s) => s.editMode);
 
   const isActive = activeStage === stage.name;
   const isCompleted = completedStages.has(stage.name);
@@ -69,10 +71,11 @@ function StageNode({ stage }: { stage: StageDescription }) {
   else if (isError) cls += " error";
   else if (isCompleted) cls += " completed";
   if (isSelected) cls += " selected";
+  if (editMode) cls += " editable";
 
   return (
     <div
-      className="flex flex-col items-center"
+      className="flex flex-col items-center relative"
       style={{ width: R * 2 + 20 }}
       onClick={(e) => {
         e.stopPropagation();
@@ -80,6 +83,11 @@ function StageNode({ stage }: { stage: StageDescription }) {
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      {editMode && (
+        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[var(--accent)] z-10 flex items-center justify-center">
+          <span className="text-[7px] text-black font-bold">✎</span>
+        </div>
+      )}
       <div className={cls}>{stage.order}</div>
       <span
         className="mt-1.5 text-[10px] font-medium tracking-wide text-center leading-tight"
@@ -311,6 +319,31 @@ function Decorations() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   Edit Mode Toggle
+   ═══════════════════════════════════════════════════════ */
+function EditModeToggle() {
+  const editMode = useEditorStore((s) => s.editMode);
+  const setEditMode = useEditorStore((s) => s.setEditMode);
+  const locale = useUIStore((s) => s.locale);
+  const isKo = locale === "ko";
+
+  return (
+    <button
+      onClick={() => setEditMode(!editMode)}
+      className="text-[10px] px-3 py-1 rounded-md transition-colors hover:brightness-125"
+      style={{
+        background: editMode ? "var(--accent)" : "var(--bg-tertiary)",
+        color: editMode ? "var(--bg-primary)" : "var(--text-secondary)",
+        border: `1px solid ${editMode ? "var(--accent)" : "var(--border)"}`,
+        fontWeight: editMode ? 600 : 400,
+      }}
+    >
+      {editMode ? (isKo ? "편집 중" : "Editing") : (isKo ? "편집" : "Edit")}
+    </button>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    Main Component
    ═══════════════════════════════════════════════════════ */
 export default function PipelineView() {
@@ -383,6 +416,7 @@ export default function PipelineView() {
           >
             {isKo ? "스크롤 · 확대/축소 \u2003 드래그 · 이동" : "scroll\u00a0\u00b7\u00a0zoom \u2003 drag\u00a0\u00b7\u00a0pan"}
           </span>
+          <EditModeToggle />
           <button
             onClick={() => useUIStore.getState().setCodeViewOpen(true)}
             className="text-[10px] px-3 py-1 rounded-md transition-colors hover:brightness-125"
