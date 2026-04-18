@@ -140,8 +140,17 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
   // through to false for older backends that don't yet carry the flag.
   const isRequired = introspection?.required === true;
 
+  // Required stages are always active — the backend enforces this, but we
+  // defensively write `active: true` on the draft once introspection tells
+  // us the stage is required. Prevents a legacy manifest with `active:false`
+  // from sneaking past the toggle-less UI.
+  React.useEffect(() => {
+    if (isRequired && !stage.active) {
+      updateStageDraft(stage.order, { active: true });
+    }
+  }, [isRequired, stage.active, stage.order, updateStageDraft]);
+
   const handleActiveToggle = () => {
-    if (isRequired) return;
     updateStageDraft(stage.order, { active: !stage.active });
   };
 
@@ -236,27 +245,45 @@ const StageCard: React.FC<StageCardProps> = ({ stage }) => {
               {stage.name}
             </h3>
           </div>
-          <label
-            className={`flex items-center gap-1.5 select-none ${
-              isRequired ? "cursor-not-allowed" : "cursor-pointer"
-            }`}
-            title={
-              isRequired
-                ? "This stage is required for every pipeline and cannot be deactivated."
-                : undefined
-            }
-          >
-            <input
-              type="checkbox"
-              className="w-3.5 h-3.5 accent-[var(--accent)]"
-              checked={stage.active}
-              onChange={handleActiveToggle}
-              disabled={isRequired}
-            />
-            <span className="text-[11px] text-[var(--text-secondary)]">
-              {isRequired ? "Active · Required" : "Active"}
+          {isRequired ? (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.12em] select-none"
+              style={{
+                background: "var(--accent-dim)",
+                color: "var(--accent)",
+                border: "1px solid var(--accent)",
+              }}
+              title="This stage is required for every pipeline and is always active."
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+              Required
             </span>
-          </label>
+          ) : (
+            <label className="flex items-center gap-1.5 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-3.5 h-3.5 accent-[var(--accent)]"
+                checked={stage.active}
+                onChange={handleActiveToggle}
+              />
+              <span className="text-[11px] text-[var(--text-secondary)]">
+                Active
+              </span>
+            </label>
+          )}
         </div>
 
         {artifacts.length > 0 && (

@@ -90,8 +90,20 @@ code, .mono { font-family: 'JetBrains Mono', monospace; }
   box-shadow: 0 0 14px rgba(212,91,91,0.12);
 }
 
-/* Inactive stages look identical to normal stages on the canvas.
-   The inactive badge only appears in the detail panel. */
+.stage-circle.inactive {
+  border-color: var(--border);
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  opacity: 0.38;
+  box-shadow: none;
+}
+.stage-circle.inactive:hover {
+  opacity: 0.7;
+  border-color: var(--text-muted);
+  color: var(--text-secondary);
+  transform: scale(1.06);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+}
 
 .stage-circle.selected {
   border-color: var(--accent);

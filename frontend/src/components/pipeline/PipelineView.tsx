@@ -70,6 +70,7 @@ function StageNode({ stage }: { stage: StageDescription }) {
   if (isActive) cls += " active";
   else if (isError) cls += " error";
   else if (isCompleted) cls += " completed";
+  else if (isInactive) cls += " inactive";
   if (isSelected) cls += " selected";
   if (editMode) cls += " editable";
 
@@ -348,8 +349,21 @@ function EditModeToggle() {
    ═══════════════════════════════════════════════════════ */
 export default function PipelineView() {
   const stages = usePipelineStore((s) => s.stages);
+  const activePreset = usePipelineStore((s) => s.activePreset);
+  const activeEnvId = usePipelineStore((s) => s.activeEnvId);
+  const environments = usePipelineStore((s) => s.environments);
   const locale = useUIStore((s) => s.locale);
   const isKo = locale === "ko";
+
+  const activeEnv = activeEnvId
+    ? environments.find((e) => e.id === activeEnvId) ?? null
+    : null;
+  const sourceKind = activeEnv
+    ? (isKo ? "환경" : "Environment")
+    : (isKo ? "프리셋" : "Preset");
+  const sourceLabel = activeEnv ? activeEnv.name : activePreset || "—";
+  const activeCount = stages.filter((s) => s.is_active).length;
+  const totalCount = stages.length;
   const {
     containerRef,
     transform,
@@ -396,6 +410,30 @@ export default function PipelineView() {
             >
               {isKo ? "16단계 아키텍처" : "16-Stage Architecture"}
             </h2>
+          </div>
+          <div className="flex items-center gap-2 mt-1 text-[10px]">
+            <span
+              className="uppercase tracking-[0.15em]"
+              style={{ color: "var(--text-muted)" }}
+            >
+              {sourceKind}
+            </span>
+            <span style={{ color: "var(--border-hover)" }}>·</span>
+            <span
+              className="font-semibold"
+              style={{
+                color: sourceLabel === "—" ? "var(--text-muted)" : "var(--accent)",
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+            >
+              {sourceLabel}
+            </span>
+            <span style={{ color: "var(--border-hover)" }}>·</span>
+            <span style={{ color: "var(--text-muted)" }}>
+              {isKo
+                ? `${activeCount}/${totalCount} 활성`
+                : `${activeCount}/${totalCount} active`}
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-3">
