@@ -1,15 +1,21 @@
-/* environmentStore — Zustand store for environment management */
+/* environmentStore — Zustand store for environment management.
+ *
+ * v0.8.5: detail fetch now uses the v2 endpoint so we can render the full
+ * EnvironmentManifest (not just the legacy snapshot). The backend returns
+ * both fields on /api/environments/{id}; we just assume the v2 shape and
+ * let the preview render whichever is populated.
+ */
 import { create } from "zustand";
 import type {
   EnvironmentSummary,
-  EnvironmentDetail,
   EnvironmentDiffResult,
 } from "../types/editor";
+import type { EnvironmentDetailV2 } from "../types/environment";
 import type { PresetInfo } from "../types/pipeline";
 import {
   fetchEnvironments,
   saveEnvironment,
-  fetchEnvironment,
+  fetchEnvironmentV2,
   updateEnvironment,
   deleteEnvironment,
   exportEnvironment,
@@ -28,7 +34,7 @@ interface EnvironmentStore {
   loading: boolean;
   error: string | null;
   selectedEnvId: string | null;
-  selectedDetail: EnvironmentDetail | null;
+  selectedDetail: EnvironmentDetailV2 | null;
   diffResult: EnvironmentDiffResult | null;
 
   // CRUD
@@ -92,7 +98,7 @@ export const useEnvironmentStore = create<EnvironmentStore>((set, get) => ({
   loadDetail: async (envId) => {
     set({ error: null });
     try {
-      const detail = await fetchEnvironment(envId);
+      const detail = await fetchEnvironmentV2(envId);
       set({ selectedDetail: detail, selectedEnvId: envId });
     } catch (e) {
       set({ error: String(e) });

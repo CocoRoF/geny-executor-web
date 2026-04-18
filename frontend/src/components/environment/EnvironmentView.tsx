@@ -6,6 +6,8 @@
  */
 import React, { useEffect, useState } from "react";
 import { useEnvironmentStore } from "../../stores/environmentStore";
+import { usePipelineStore } from "../../stores/pipelineStore";
+import { useUIStore } from "../../stores/uiStore";
 import EnvironmentBuilder from "../builder/EnvironmentBuilder";
 import EnvironmentCard from "./EnvironmentCard";
 import EnvironmentSaveModal from "./EnvironmentSaveModal";
@@ -27,6 +29,11 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
   const openInBuilder = (envId: string | null) => {
     setBuilderEnvId(envId);
     setSubMode("build");
+  };
+
+  const runEnvironment = async (envId: string) => {
+    await usePipelineStore.getState().loadPipelineFromEnv(envId);
+    useUIStore.getState().setViewMode("pipeline");
   };
 
   const {
@@ -244,6 +251,18 @@ const EnvironmentView: React.FC<EnvironmentViewProps> = ({ sessionId }) => {
                     style={{
                       background: "var(--accent)",
                       color: "#000",
+                    }}
+                    onClick={() => runEnvironment(selectedDetail.id)}
+                    title="Load this environment into the Pipeline view so you can run it"
+                  >
+                    Run This Env
+                  </button>
+                  <button
+                    className="text-[10px] px-3 py-1 rounded"
+                    style={{
+                      background: "var(--bg-tertiary)",
+                      color: "var(--text-secondary)",
+                      border: "1px solid var(--border)",
                     }}
                     onClick={() => openInBuilder(selectedDetail.id)}
                   >
