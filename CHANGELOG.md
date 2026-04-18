@@ -2,6 +2,61 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.9 — 2026-04-18
+
+### Fixed — Three regressions from v0.8.8 that didn't actually ship
+
+v0.8.8 claimed to lock required stages, clarify the pipeline view, and kill
+the Mock fallback. The Mock fix held; the other two didn't — the "Required"
+badge never rendered on the right stages and inactive stages still painted
+green after a run. The regressions were each caused by a single upstream
+data-path bug that made the UI-level work unreachable.
+
+- **`StageIntrospectionResponse` now declares the `required` field.** The
+  library emits `required: True` for `s01_input / s06_api / s09_parse /
+  s16_yield` (geny-executor ≥0.13.3), but the backend's Pydantic response
+  model didn't list `required`, so FastAPI dropped it on the way out
+  (Pydantic v2's default `extra='ignore'`). The frontend's
+  `StageCard.isRequired = introspection?.required === true` check was
+  therefore always false, and the Required badge UI shipped in v0.8.8 was
+  unreachable. One additive field with a `False` default fixes every
+  callsite — the bootstrap catalog, the per-artifact detail endpoint, and
+  the Builder's introspection cache all pick up the flag.
+- **`executionStore` now tracks `bypassedStages` separately from
+  `completedStages`.** The library fires `stage.bypass` in two situations:
+  (a) manifest had `active: false` so the stage was never registered, (b)
+  the stage was registered but `should_bypass()` returned true at runtime.
+  Both mean "this stage didn't run", not "completed successfully". v0.8.8
+  merged them into `completedStages`, and `PipelineView`'s class priority
+  (`active > error > completed > inactive`) then painted every bypassed
+  stage green — including manifest-inactive ones. Splitting the set and
+  reusing the `.inactive` mute style for `isBypassed || isInactive`
+  restores the visual distinction without touching the bypass event
+  semantics on the library side.
+- **`GET /api/sessions/{id}` now describes the session's live pipeline.**
+  Env-backed sessions are registered under a synthetic `"env:<id>"` preset
+  label. The previous handler fed that label to
+  `PipelineService.describe_pipeline`, whose `match preset` has no `env:`
+  branch — so the moment any caller hit this endpoint for an env session
+  it would 500 with `ValueError: Unknown preset`. No frontend code is
+  calling this yet, but the fix is free (use `session.pipeline.describe()`
+  directly, skip the rebuild) and closes the hole before anything starts
+  exercising it.
+
+### Verified — Environment manifest round-trip is byte-clean
+
+Static audit (no runtime behaviour change) confirmed what the "inactive
+stages look active" observation was actually about. `Pipeline.from_manifest`
+already respects `entry.active` (inactive stages are never registered);
+`PipelineMutator.restore` propagates per-stage `config` onto the stage's
+`get_config()` output; `manifestToStageDescriptions` preserves
+`is_active: s.active` for the header count. The runtime fidelity was
+correct — the illusion was entirely the bypass-conflation bug above.
+
+### Upgraded
+- `geny-executor-web` backend: `0.8.8 → 0.8.9`
+- `geny-executor-web` frontend: `0.8.8 → 0.8.9`
+
 ## v0.8.7 — 2026-04-18
 
 ### Fixed — Blank envs arrive with required stages already active
