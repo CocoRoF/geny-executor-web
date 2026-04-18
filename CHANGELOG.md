@@ -2,6 +2,39 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.7 — 2026-04-18
+
+### Fixed — Blank envs arrive with required stages already active
+
+Creating a blank environment via `POST /api/environments` (mode="blank")
+used to return a manifest with `active=false` on all 16 stages,
+including the four that every pipeline needs — Input, API, Parse,
+Yield. Users had to manually flip those four on before the env could
+run, and the Environments preview misleadingly showed "0 / 16 active"
+for something labelled as a usable template.
+
+The library v0.13.3 shipped `StageIntrospection.required` with the
+correct required set, but `EnvironmentManifest.blank_manifest()` never
+consumed the flag — it kept hardcoding `active=False` for every stage.
+Library v0.13.4 fixes this at the source by reading `insp.required` in
+the blank constructor.
+
+- **Bumped pin: `geny-executor>=0.13.3 → >=0.13.4`.** Blank-mode envs
+  now come back from the backend with `{1, 6, 9, 16}` already active,
+  matching the `minimal` preset. Active-stage count reported by the
+  Environments list card shows `4 / 16 active` instead of `0 / 16`
+  immediately after creation.
+- **Frontend `coerceRequiredStagesActive` becomes a belt-and-braces
+  fallback.** The builder's load-time coercion that flips required
+  stages back on is still present — it protects legacy envs saved
+  before v0.13.4 that were persisted with required stages off — but
+  it no longer has to correct the brand-new creation path.
+
+### Upgraded
+- `geny-executor` pin: `>=0.13.3 → >=0.13.4`
+- `geny-executor-web` backend: `0.8.6 → 0.8.7`
+- `geny-executor-web` frontend: `0.8.6 → 0.8.7`
+
 ## v0.8.6 — 2026-04-18
 
 ### Changed — Environments tab: honest preview of what's saved
