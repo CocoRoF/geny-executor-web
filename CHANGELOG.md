@@ -2,6 +2,68 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.8.6 — 2026-04-18
+
+### Changed — Environments tab: honest preview of what's saved
+
+After the builder overhaul in v0.8.4, saved environments wrote their
+state into the v2 manifest (`manifest.model`, `.pipeline`, `.stages[]`),
+but the Environments tab's preview pane still read only the legacy
+`snapshot` field — so freshly built envs showed empty MODEL / PIPELINE
+/ STAGES(0) even though they had 16 configured stages. The preview now
+matches the source of truth:
+
+- **`EnvironmentPreview` consumes `EnvironmentDetailV2`.** Prefers
+  `detail.manifest`; falls back to the legacy snapshot (dict or
+  list-of-records strategy shape) only when manifest is absent. The
+  header line shows the source (`manifest v2` / `legacy snapshot`),
+  the `N/16 stages active` count, and the `base_preset` when set.
+- **Per-stage rows.** Every stage renders order + name + category
+  label, an `ON/OFF` pill, `artifact:` line, strategies as
+  `slot=impl` chips, and a collapsible `config (N)` details block.
+  Stages carrying a non-inherit `tool_binding` or a non-empty
+  `model_override` are flagged with `TOOLS` / `MODEL` badges so users
+  can see per-stage customisations at a glance. Inactive stages dim
+  to 45% opacity; active stages pick up their category accent colour.
+- **`environmentStore.loadDetail` switched to
+  `GET /api/environments/{id}` via `fetchEnvironmentV2`.** Its
+  `selectedDetail` now populates both `manifest` and `snapshot` so
+  the preview gets a real payload for both v2 and legacy rows.
+
+### Changed — Environments tab: honest list summary
+
+The list previously showed every env as `{model} · {stage_count} stages`,
+which was misleading — `stage_count` is always 16 on a manifest env
+regardless of how many are actually `active`, and `model` was empty
+for blank envs. The backend now exposes the extra fields and the card
+reads them:
+
+- **Backend summary gains `active_stage_count` and `base_preset`.**
+  `EnvironmentService._summarize` counts `stages[].active` for v2
+  rows (`is_active` for legacy) and reads the base preset from
+  `metadata.base_preset` (falling back to `pipeline.name` when older
+  manifests don't record metadata).
+- **`EnvironmentCard` renders `N / 16 active`, an italic `no model`
+  placeholder when `model` is blank, and a subtle `base: <name>`
+  chip when the env was seeded from a preset.**
+- **Types.** `EnvironmentSummary` / `EnvironmentSummaryResponse`
+  grow `active_stage_count: number` and `base_preset: string`, both
+  with safe defaults so older backends and frontends stay compatible.
+
+### Added — One-click "Run This Env" from Environments tab
+
+The detail header now has a `Run This Env` primary button alongside
+`Edit in Builder` / `Share`. It calls
+`pipelineStore.loadPipelineFromEnv(id)` and
+`uiStore.setViewMode("pipeline")`, dropping the user straight into
+the Pipeline view with the env selected so they can type a prompt and
+start a session. Replaces the prior flow of switching tabs manually
+and picking the env from the header dropdown.
+
+### Upgraded
+- `geny-executor-web` backend: `0.8.5 → 0.8.6`
+- `geny-executor-web` frontend: `0.8.5 → 0.8.6`
+
 ## v0.8.5 — 2026-04-17
 
 ### Added — Pipeline view: run saved environments

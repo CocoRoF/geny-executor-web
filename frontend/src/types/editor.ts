@@ -92,7 +92,13 @@ export interface EnvironmentSummary {
   created_at: string;
   updated_at: string;
   stage_count: number;
+  /** Number of stages marked active in the manifest. 0 for legacy rows where
+   * the backend didn't compute it. */
+  active_stage_count?: number;
+  /** May be empty for blank envs or legacy snapshots without a model. */
   model: string;
+  /** Name of the preset used to seed this env, if any. Empty otherwise. */
+  base_preset?: string;
 }
 
 export interface EnvironmentDetail {

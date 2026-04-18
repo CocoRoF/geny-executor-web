@@ -50,15 +50,33 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               {env.description}
             </p>
           )}
-          <div className="flex items-center gap-3 mt-1.5">
-            {env.model && (
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5">
+            {env.model ? (
               <span className="text-[10px] text-[var(--text-muted)] font-mono">
                 {env.model}
               </span>
+            ) : (
+              <span className="text-[10px] italic text-[var(--text-muted)]">
+                no model
+              </span>
             )}
             <span className="text-[10px] text-[var(--text-muted)]">
-              {env.stage_count} stages
+              {env.active_stage_count ?? env.stage_count} / {env.stage_count}{" "}
+              active
             </span>
+            {env.base_preset && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded font-mono"
+                style={{
+                  background: "var(--bg-tertiary)",
+                  color: "var(--text-muted)",
+                  border: "1px solid var(--border)",
+                }}
+                title={`Based on preset: ${env.base_preset}`}
+              >
+                base: {env.base_preset}
+              </span>
+            )}
           </div>
           {env.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1.5">

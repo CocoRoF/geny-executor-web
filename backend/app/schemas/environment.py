@@ -106,7 +106,9 @@ class EnvironmentSummaryResponse(BaseModel):
     created_at: str
     updated_at: str
     stage_count: int
+    active_stage_count: int = 0
     model: str
+    base_preset: str = ""
 
 
 class EnvironmentDetailResponse(BaseModel):

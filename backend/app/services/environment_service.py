@@ -173,13 +173,22 @@ class EnvironmentService:
         if not env_id:
             return None
         manifest_dict = data.get("manifest")
+        base_preset = ""
         if isinstance(manifest_dict, dict):
-            model = manifest_dict.get("model", {}).get("model", "unknown")
+            model = manifest_dict.get("model", {}).get("model", "")
             stages = manifest_dict.get("stages", [])
+            base_preset = manifest_dict.get("metadata", {}).get("base_preset", "") or (
+                manifest_dict.get("pipeline", {}).get("name", "")
+            )
+            active = sum(1 for s in stages if isinstance(s, dict) and s.get("active"))
         else:
             snapshot = data.get("snapshot", {})
-            model = snapshot.get("model_config", {}).get("model", "unknown")
+            model = snapshot.get("model_config", {}).get("model", "")
             stages = snapshot.get("stages", [])
+            # Legacy snapshots use is_active.
+            active = sum(
+                1 for s in stages if isinstance(s, dict) and s.get("is_active")
+            )
         return {
             "id": env_id,
             "name": data.get("name", ""),
@@ -188,7 +197,9 @@ class EnvironmentService:
             "created_at": data.get("created_at", ""),
             "updated_at": data.get("updated_at", ""),
             "stage_count": len(stages),
+            "active_stage_count": active,
             "model": model,
+            "base_preset": base_preset,
         }
 
     def update(self, env_id: str, changes: Dict[str, Any]) -> Optional[Dict[str, Any]]:
