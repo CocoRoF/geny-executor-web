@@ -44,6 +44,15 @@ _PRESET_FACTORIES = {
 }
 
 
+# Stage orders that are structurally required for any pipeline. Mirrors
+# ``geny_executor.core.introspection._STAGE_REQUIRED`` (s01_input, s06_api,
+# s09_parse, s16_yield). Enforced on every write so a client that sends
+# ``active=False`` — whether by accident, via a stale payload, or by
+# editing the JSON directly — cannot persist a pipeline that the runtime
+# would refuse to build.
+_REQUIRED_ORDERS: frozenset[int] = frozenset({1, 6, 9, 16})
+
+
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -82,25 +91,72 @@ class EnvironmentService:
         """Return the stored environment as a v2 :class:`EnvironmentManifest`.
 
         Accepts both the current ``manifest`` layout and the legacy
-        ``snapshot`` layout written by v0.7.x.
+        ``snapshot`` layout written by v0.7.x. Manifests written before
+        geny-executor 0.13.5 may carry ``provider: mock`` on the s06_api
+        stage because introspection used MockProvider; those are rewritten
+        to ``anthropic`` on load so runtime sessions hit the real API.
         """
         raw = self._read_raw(env_id)
         if raw is None:
             return None
 
         if "manifest" in raw and isinstance(raw["manifest"], dict):
-            return EnvironmentManifest.from_dict(raw["manifest"])
-
-        snapshot_dict = raw.get("snapshot")
-        if isinstance(snapshot_dict, dict):
+            manifest = EnvironmentManifest.from_dict(raw["manifest"])
+        else:
+            snapshot_dict = raw.get("snapshot")
+            if not isinstance(snapshot_dict, dict):
+                return None
             snap = PipelineSnapshot.from_dict(snapshot_dict)
-            return EnvironmentManifest.from_snapshot(
+            manifest = EnvironmentManifest.from_snapshot(
                 snap,
                 name=raw.get("name", "imported"),
                 description=raw.get("description", ""),
                 tags=raw.get("tags", []),
             )
-        return None
+
+        self._migrate_legacy_mock_provider(manifest)
+        return manifest
+
+    @staticmethod
+    def _force_required_stages_active(manifest: EnvironmentManifest) -> None:
+        """Coerce every required stage's ``active`` flag to ``True``.
+
+        Runs on every write so a client payload (or edited JSON) cannot
+        persist a required stage in an inactive state. The UI already hides
+        the toggle for required stages; this is the last-line defence
+        behind it.
+        """
+        entries = manifest.stage_entries()
+        changed = False
+        for entry in entries:
+            if entry.order in _REQUIRED_ORDERS and not entry.active:
+                entry.active = True
+                changed = True
+        if changed:
+            manifest.set_stage_entries(entries)
+
+    @staticmethod
+    def _migrate_legacy_mock_provider(manifest: EnvironmentManifest) -> None:
+        """Rewrite pre-0.13.5 ``s06_api.strategies.provider = 'mock'`` entries.
+
+        Older blank manifests recorded ``mock`` because introspection used
+        MockProvider to instantiate APIStage session-lessly. At runtime that
+        meant ``PipelineMutator.restore()`` swapped the real AnthropicProvider
+        for MockProvider, producing ``"Mock response"`` instead of real API
+        calls. The library is fixed forward; this rewrites the on-load view
+        of stale manifests so existing envs behave correctly without a
+        manual re-save.
+        """
+        entries = manifest.stage_entries()
+        changed = False
+        for entry in entries:
+            if entry.order != 6 or entry.artifact != "default":
+                continue
+            if entry.strategies.get("provider") == "mock":
+                entry.strategies["provider"] = "anthropic"
+                changed = True
+        if changed:
+            manifest.set_stage_entries(entries)
 
     def _write_manifest(
         self,
@@ -113,6 +169,10 @@ class EnvironmentService:
         """Persist *manifest* to disk in v2 layout and return the full record."""
         # Keep the manifest's metadata id in sync with the filename.
         manifest.metadata.id = env_id
+        # Every write passes through the required-stage coercion so payloads
+        # that tried to deactivate Input / API / Parse / Yield land on disk
+        # as active regardless.
+        self._force_required_stages_active(manifest)
         now = _iso_now()
         record: Dict[str, Any] = {
             "id": env_id,
@@ -257,11 +317,13 @@ class EnvironmentService:
                 tags=data.get("tags", []),
             )
             manifest.metadata.id = env_id
+            self._force_required_stages_active(manifest)
             data["manifest"] = manifest.to_dict()
             data.pop("snapshot", None)
         elif "manifest" in data and isinstance(data["manifest"], dict):
             migrated = EnvironmentManifest.from_dict(data["manifest"])
             migrated.metadata.id = env_id
+            self._force_required_stages_active(migrated)
             data["manifest"] = migrated.to_dict()
 
         self._write_raw(env_id, data)
