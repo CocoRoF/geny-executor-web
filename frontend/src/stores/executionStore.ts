@@ -6,6 +6,13 @@ interface ExecutionStore {
   events: PipelineEvent[];
   activeStage: string | null;
   completedStages: Set<string>;
+  /* Stages that emitted `stage.bypass` — either unregistered because the
+   * manifest had `active: false`, or registered but short-circuited by
+   * `stage.should_bypass()` at runtime. Kept separate from `completedStages`
+   * so the pipeline view can render them muted (they never actually ran).
+   * The library emits the same event for both cases; we treat them the same
+   * here. */
+  bypassedStages: Set<string>;
   errorStages: Set<string>;
   isExecuting: boolean;
   result: PipelineResult | null;
@@ -28,6 +35,7 @@ export const useExecutionStore = create<ExecutionStore>((set) => ({
   events: [],
   activeStage: null,
   completedStages: new Set(),
+  bypassedStages: new Set(),
   errorStages: new Set(),
   isExecuting: false,
   result: null,
@@ -39,6 +47,7 @@ export const useExecutionStore = create<ExecutionStore>((set) => ({
     set((state) => {
       let activeStage = state.activeStage;
       const completedStages = new Set(state.completedStages);
+      const bypassedStages = new Set(state.bypassedStages);
       const errorStages = new Set(state.errorStages);
       let result = state.result;
       let isExecuting = state.isExecuting;
@@ -74,7 +83,10 @@ export const useExecutionStore = create<ExecutionStore>((set) => ({
         activeStage = null;
         isStreaming = false;
       } else if (event.type === "stage.bypass") {
-        completedStages.add(event.stage);
+        // Bypass means the stage didn't run. It's not completed — the UI
+        // should render it the same way it renders manifest-inactive stages
+        // (muted), never green.
+        bypassedStages.add(event.stage);
       } else if (event.type === "token.tracked") {
         runningCostUsd = Number(event.data.total_cost_usd ?? runningCostUsd);
       } else if (event.type === "pipeline.complete") {
@@ -118,6 +130,7 @@ export const useExecutionStore = create<ExecutionStore>((set) => ({
         events,
         activeStage,
         completedStages,
+        bypassedStages,
         errorStages,
         result,
         isExecuting,
@@ -134,6 +147,7 @@ export const useExecutionStore = create<ExecutionStore>((set) => ({
       events: [],
       activeStage: null,
       completedStages: new Set(),
+      bypassedStages: new Set(),
       errorStages: new Set(),
       isExecuting: false,
       result: null,

@@ -17,6 +17,8 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from geny_executor.core.stage import StageDescription
+
 from app.services.exceptions import EnvironmentNotFoundError as _RealEnvNotFound
 
 
@@ -39,10 +41,26 @@ def _make_fake_session(session_id: str, preset: str = "chat"):
             cache_read_input_tokens=0,
         ),
     )
+    # The GET /api/sessions/{id} route now describes the session's live
+    # pipeline directly (not via PipelineService.describe_pipeline), so the
+    # fake session must expose `pipeline.describe()` returning real dataclass
+    # instances that `asdict` can serialise.
+    pipeline = SimpleNamespace(
+        describe=lambda: [
+            StageDescription(
+                name="input_stage",
+                order=1,
+                category="A",
+                is_active=True,
+                strategies=[],
+            ),
+        ]
+    )
     return SimpleNamespace(
         id=session_id,
         state=state,
         freshness=SimpleNamespace(value="fresh"),
+        pipeline=pipeline,
     )
 
 

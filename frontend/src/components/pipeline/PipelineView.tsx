@@ -55,6 +55,7 @@ function StageNode({ stage }: { stage: StageDescription }) {
   const meta = getLocalizedStageMeta(stage.order, locale);
   const activeStage = useExecutionStore((s) => s.activeStage);
   const completedStages = useExecutionStore((s) => s.completedStages);
+  const bypassedStages = useExecutionStore((s) => s.bypassedStages);
   const errorStages = useExecutionStore((s) => s.errorStages);
   const selectedOrder = useUIStore((s) => s.selectedStageOrder);
   const selectStage = useUIStore((s) => s.selectStage);
@@ -62,15 +63,19 @@ function StageNode({ stage }: { stage: StageDescription }) {
 
   const isActive = activeStage === stage.name;
   const isCompleted = completedStages.has(stage.name);
+  const isBypassed = bypassedStages.has(stage.name);
   const isError = errorStages.has(stage.name);
   const isInactive = !stage.is_active;
   const isSelected = selectedOrder === stage.order;
 
+  // Priority: active > error > completed > (bypassed || inactive).
+  // Bypassed and manifest-inactive share one muted style — both mean the
+  // stage didn't run this iteration.
   let cls = "stage-circle";
   if (isActive) cls += " active";
   else if (isError) cls += " error";
   else if (isCompleted) cls += " completed";
-  else if (isInactive) cls += " inactive";
+  else if (isBypassed || isInactive) cls += " inactive";
   if (isSelected) cls += " selected";
   if (editMode) cls += " editable";
 

@@ -60,6 +60,10 @@ class StageIntrospectionResponse(BaseModel):
     strategy_chains: Dict[str, ChainIntrospectionResponse] = Field(default_factory=dict)
     tool_binding_supported: bool = True
     model_override_supported: bool = True
+    # True for stages the runtime can't start/run/surface without (s01 / s06 /
+    # s09 / s16 today). UIs must render these as un-togglable "always active".
+    # Defaults to False so older backends stay forward-compatible.
+    required: bool = False
     extra: Dict[str, Any] = Field(default_factory=dict)
 
 

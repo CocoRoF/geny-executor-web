@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, HTTPException, Request
 
 from app.config import settings
@@ -63,14 +65,21 @@ async def list_sessions(request: Request):
 @router.get("/{session_id}")
 async def get_session(request: Request, session_id: str):
     session_service = request.app.state.session_service
-    pipeline_service = request.app.state.pipeline_service
 
     session = session_service.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
     preset = session_service.get_preset(session_id)
-    desc = pipeline_service.describe_pipeline(preset)
+    # Describe the session's live pipeline directly — don't rebuild from the
+    # preset name. Env-backed sessions are registered under a synthetic
+    # "env:<id>" label that `PipelineService.describe_pipeline` can't resolve,
+    # and even for real presets the session's pipeline is the source of truth
+    # (the describe call used to silently construct a fresh one).
+    desc = {
+        "name": preset,
+        "stages": [asdict(s) for s in session.pipeline.describe()],
+    }
 
     return {
         "session_id": session.id,
