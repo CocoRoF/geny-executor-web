@@ -13,3 +13,14 @@ class EnvironmentNotFoundError(LookupError):
 
 class StageValidationError(ValueError):
     """Raised when a PATCH / PUT payload fails stage-level schema validation."""
+
+
+class MemoryConfigError(ValueError):
+    """Raised when a memory-provider config dict is malformed or refers
+    to a backend whose optional extras are not installed."""
+
+
+class MemorySessionNotFoundError(LookupError):
+    """Raised when a memory operation references a session id that the
+    registry has not provisioned (either never created or already
+    disposed)."""

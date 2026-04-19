@@ -2,6 +2,42 @@
 
 All notable changes to `geny-executor-web` are documented here.
 
+## v0.9.0 — 2026-04-19
+
+### Added — Per-session memory backends (SQLite + Postgres)
+
+Bumps the executor pin to `>=0.20.0` and plugs the new
+`MemoryProviderFactory` into the session lifecycle. Each session now
+gets its own `MemoryProvider`, selected per request or from
+server-side defaults, and attached to the pipeline's Stage 2 (Context)
+so retrieval runs against it natively.
+
+- **`MemorySessionRegistry` (new, `app/services/memory_service.py`)** —
+  parallel `session_id → MemoryProvider` map. `provision()` builds the
+  provider via the factory; `attach_to_pipeline()` wires it into
+  memory-aware stages; `release()` schedules async `close()` on the
+  running loop when present. The executor's `SessionManager` has no
+  memory hook of its own (memory binds at stage construction, not
+  session creation), so this registry lives alongside it.
+- **`Settings.default_memory_config()`** — reads `MEMORY_PROVIDER`,
+  `MEMORY_DSN`, `MEMORY_DIALECT`, `MEMORY_ROOT`, `MEMORY_TIMEZONE`,
+  `MEMORY_SCOPE` from env. Defaults to `ephemeral`. `sql` backends
+  auto-route to SQLite or Postgres by DSN scheme
+  (`postgresql://` → Postgres via `geny-executor[postgres]`).
+- **`CreateSessionRequest.memory_config`** — optional per-request
+  override shaped exactly like the factory config dict. Malformed
+  configs surface as HTTP 400.
+- **`/api/sessions/{id}/memory` (GET, POST retrieve, DELETE)** — thin
+  REST mirror over the provider's `MemoryDescriptor`, `retrieve()`,
+  and teardown. Capability-gated: providers without
+  `Capability.SEARCH` return 409 on retrieve.
+- **`docker-compose.yml`** — surfaces `MEMORY_*` env vars and ships
+  an optional (commented) Postgres service block.
+
+Tests: `test_memory_session.py` E2Es the new endpoints against a
+hermetic `FakeMemoryRegistry`; existing session tests continue to
+pass with memory registry injected.
+
 ## v0.8.9 — 2026-04-18
 
 ### Fixed — Three regressions from v0.8.8 that didn't actually ship

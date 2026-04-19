@@ -9,6 +9,15 @@ services:
       - PORT=8088
       # Allow requests from nginx container and Cloudflare-forwarded origins
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:58088}
+      # Memory backend (see backend/app/config.py). Defaults to
+      # ephemeral — set MEMORY_PROVIDER=sql with MEMORY_DSN to persist
+      # via SQLite (filesystem path) or Postgres (postgresql:// DSN).
+      - MEMORY_PROVIDER=${MEMORY_PROVIDER:-ephemeral}
+      - MEMORY_DSN=${MEMORY_DSN:-}
+      - MEMORY_DIALECT=${MEMORY_DIALECT:-}
+      - MEMORY_ROOT=${MEMORY_ROOT:-}
+      - MEMORY_TIMEZONE=${MEMORY_TIMEZONE:-}
+      - MEMORY_SCOPE=${MEMORY_SCOPE:-session}
     restart: unless-stopped
     networks:
       - internal
@@ -56,9 +65,26 @@ services:
     labels:
       service: "geny-executor-nginx"
 
+  # Optional Postgres for the `sql` memory backend. Uncomment and set
+  # MEMORY_PROVIDER=sql, MEMORY_DSN=postgresql://geny:geny@postgres:5432/geny
+  # in .env to enable. Keep commented by default so the base compose
+  # profile remains zero-dependency.
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     - POSTGRES_USER=geny
+  #     - POSTGRES_PASSWORD=geny
+  #     - POSTGRES_DB=geny
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - internal
+  #   restart: unless-stopped
+
 networks:
   internal:
     driver: bridge
 
 volumes:
   nginx-logs:
+  # postgres-data:
