@@ -2,23 +2,52 @@
 
 from __future__ import annotations
 
-from typing import AsyncIterator
+from typing import Any, AsyncIterator, Mapping, Optional
 
 from geny_executor.session.manager import SessionManager
 
+from app.services.memory_service import MemorySessionRegistry
+
 
 class SessionService:
-    """Wraps SessionManager with preset tracking."""
+    """Wraps SessionManager with preset tracking + memory wiring.
 
-    def __init__(self) -> None:
-        """Initialize with a SessionManager and preset tracking map."""
+    ``memory_registry`` is optional so tests and minimal deployments
+    can keep the ephemeral default. When set, each created session
+    gets a configured :class:`MemoryProvider` attached to its
+    pipeline's memory-aware stages, and teardown releases it.
+    """
+
+    def __init__(
+        self,
+        *,
+        memory_registry: Optional[MemorySessionRegistry] = None,
+    ) -> None:
         self._manager = SessionManager()
         self._presets: dict[str, str] = {}  # session_id -> preset name
+        self._memory = memory_registry
 
-    def create(self, pipeline, preset: str):
-        """Create a new session from a pipeline and record its preset."""
+    def create(
+        self,
+        pipeline,
+        preset: str,
+        *,
+        memory_config: Optional[Mapping[str, Any]] = None,
+    ):
+        """Create a new session and attach a memory provider.
+
+        ``memory_config`` overrides the registry's default; pass
+        ``None`` to use it. Memory wiring is a no-op when no registry
+        is configured.
+        """
         session = self._manager.create(pipeline)
         self._presets[session.id] = preset
+
+        if self._memory is not None:
+            provider = self._memory.provision(session.id, override=memory_config)
+            if provider is not None:
+                self._memory.attach_to_pipeline(session.pipeline, provider)
+
         return session
 
     def get(self, session_id: str):
@@ -32,6 +61,8 @@ class SessionService:
     def delete(self, session_id: str) -> bool:
         """Delete a session and remove its preset record. Returns True if existed."""
         self._presets.pop(session_id, None)
+        if self._memory is not None:
+            self._memory.release(session_id)
         return self._manager.delete(session_id)
 
     def list_all(self) -> list[dict]:

@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.config import settings
 from app.schemas.session import CreateSessionRequest, SessionListResponse
-from app.services.exceptions import EnvironmentNotFoundError
+from app.services.exceptions import EnvironmentNotFoundError, MemoryConfigError
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -36,7 +36,12 @@ async def create_session(request: Request, body: CreateSessionRequest):
                 status_code=400, detail=f"Failed to build pipeline: {exc}"
             )
         preset_label = f"env:{body.env_id}"
-        session = session_service.create(pipeline, preset=preset_label)
+        try:
+            session = session_service.create(
+                pipeline, preset=preset_label, memory_config=body.memory_config
+            )
+        except MemoryConfigError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid memory_config: {exc}")
         return {
             "session_id": session.id,
             "preset": preset_label,
@@ -51,7 +56,12 @@ async def create_session(request: Request, body: CreateSessionRequest):
         model=body.model,
         max_iterations=body.max_iterations,
     )
-    session = session_service.create(pipeline, preset=body.preset)
+    try:
+        session = session_service.create(
+            pipeline, preset=body.preset, memory_config=body.memory_config
+        )
+    except MemoryConfigError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid memory_config: {exc}")
 
     return {"session_id": session.id, "preset": body.preset}
 

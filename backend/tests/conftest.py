@@ -86,16 +86,19 @@ class FakePipelineService:
 class FakeSessionService:
     _counter = 0
 
-    def __init__(self):
+    def __init__(self, memory_registry=None):
         self._sessions: dict[str, SimpleNamespace] = {}
         self._presets: dict[str, str] = {}
+        self._memory = memory_registry
 
-    def create(self, pipeline, preset="chat"):
+    def create(self, pipeline, preset="chat", *, memory_config=None):
         FakeSessionService._counter += 1
         sid = f"sess-{FakeSessionService._counter}"
         s = _make_fake_session(sid, preset)
         self._sessions[sid] = s
         self._presets[sid] = preset
+        if self._memory is not None:
+            self._memory.provision(sid, override=memory_config)
         return s
 
     def get(self, session_id: str):
@@ -108,6 +111,8 @@ class FakeSessionService:
         if session_id in self._sessions:
             del self._sessions[session_id]
             self._presets.pop(session_id, None)
+            if self._memory is not None:
+                self._memory.release(session_id)
             return True
         return False
 
@@ -125,6 +130,85 @@ class FakeSessionService:
                 }
             )
         return result
+
+
+class FakeMemoryRegistry:
+    """Minimal stand-in for :class:`MemorySessionRegistry`.
+
+    Mirrors the surface the router and SessionService touch:
+    ``provision``, ``release``, ``get``, ``require``, ``describe``.
+    Stores a synthetic descriptor per session so GET /memory tests can
+    assert against a stable shape without pulling in the real factory.
+    """
+
+    def __init__(self, default_config=None):
+        self._default = default_config
+        self._providers: dict[str, dict] = {}
+
+    def provision(self, session_id, *, override=None):
+        cfg = (
+            dict(override)
+            if override is not None
+            else (dict(self._default) if self._default else None)
+        )
+        if cfg is None:
+            return None
+        self._providers[session_id] = cfg
+        return SimpleNamespace(descriptor=self._descriptor_for(cfg))
+
+    def release(self, session_id):
+        return self._providers.pop(session_id, None) is not None
+
+    def get(self, session_id):
+        cfg = self._providers.get(session_id)
+        if cfg is None:
+            return None
+        return SimpleNamespace(descriptor=self._descriptor_for(cfg))
+
+    def require(self, session_id):
+        from app.services.exceptions import MemorySessionNotFoundError
+
+        if session_id not in self._providers:
+            raise MemorySessionNotFoundError(session_id)
+        return SimpleNamespace(
+            descriptor=self._descriptor_for(self._providers[session_id])
+        )
+
+    def describe(self, session_id):
+        from app.services.exceptions import MemorySessionNotFoundError
+
+        if session_id not in self._providers:
+            raise MemorySessionNotFoundError(session_id)
+        cfg = self._providers[session_id]
+        return {
+            "session_id": session_id,
+            "provider": cfg.get("provider", "ephemeral"),
+            "version": "fake-1.0",
+            "scope": cfg.get("scope", "session"),
+            "layers": ["stm"],
+            "capabilities": ["read", "write"],
+            "backends": [
+                {"layer": "stm", "backend": cfg.get("provider", "ephemeral")},
+            ],
+            "metadata": {},
+            "config": {k: v for k, v in cfg.items() if k != "session_id"},
+        }
+
+    def attach_to_pipeline(self, pipeline, provider):
+        return None
+
+    def default_config(self):
+        return dict(self._default) if self._default else None
+
+    @staticmethod
+    def _descriptor_for(cfg):
+        return SimpleNamespace(
+            name=cfg.get("provider", "ephemeral"),
+            scope=SimpleNamespace(value=cfg.get("scope", "session")),
+            capabilities=[],
+            backends=[],
+            metadata={},
+        )
 
 
 class FakeMutationService:
@@ -427,9 +511,9 @@ class FakeHistoryService:
 # ── App factory ──────────────────────────────────────────
 
 
-def _create_test_app() -> FastAPI:
+def _create_test_app(memory_default=None) -> FastAPI:
     """Build a FastAPI app with fake services injected directly (no lifespan)."""
-    from app.routers import health, session, stage_editor
+    from app.routers import health, session, stage_editor, memory
     from app.routers import tool_manager, environment, history
 
     test_app = FastAPI()
@@ -442,8 +526,10 @@ def _create_test_app() -> FastAPI:
     )
 
     # Inject fake services directly on state
+    memory_registry = FakeMemoryRegistry(default_config=memory_default)
     test_app.state.pipeline_service = FakePipelineService()
-    test_app.state.session_service = FakeSessionService()
+    test_app.state.session_service = FakeSessionService(memory_registry=memory_registry)
+    test_app.state.memory_service = memory_registry
     test_app.state.mutation_service = FakeMutationService()
     test_app.state.tool_service = FakeToolService()
     test_app.state.environment_service = FakeEnvironmentService()
@@ -456,6 +542,7 @@ def _create_test_app() -> FastAPI:
     test_app.include_router(history.router)
     test_app.include_router(tool_manager.router)
     test_app.include_router(stage_editor.router)
+    test_app.include_router(memory.router)
     return test_app
 
 

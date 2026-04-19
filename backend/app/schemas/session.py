@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -17,6 +17,10 @@ class CreateSessionRequest(BaseModel):
     system_prompt, model). When *env_id* is given, the pipeline is built
     from the stored :class:`EnvironmentManifest` via
     ``EnvironmentService.instantiate_pipeline``.
+
+    *memory_config* (optional) is passed verbatim to
+    ``MemoryProviderFactory.build``. When omitted, the server's
+    ``MEMORY_*`` env-configured default is used.
     """
 
     preset: str = "chat"
@@ -25,6 +29,7 @@ class CreateSessionRequest(BaseModel):
     model: str = "claude-sonnet-4-20250514"
     max_iterations: int = 50
     env_id: Optional[str] = None
+    memory_config: Optional[Dict[str, Any]] = None
 
     @field_validator("preset")
     @classmethod
