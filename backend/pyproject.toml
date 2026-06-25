@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "geny-executor-web"
 version = "0.9.0"
 description = "WebUI for geny-executor pipeline library"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
