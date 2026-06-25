@@ -71,3 +71,7 @@ The frontend starts at `http://localhost:5173` with API proxy to the backend.
 
 **Backend:** FastAPI, uvicorn, geny-executor, WebSocket  
 **Frontend:** React 18, TypeScript, Vite, TailwindCSS, React Flow, Zustand
+
+## License
+
+[Apache License 2.0](LICENSE). Copyright 2026 CocoRoF — see [NOTICE](NOTICE).
